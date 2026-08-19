@@ -49,8 +49,9 @@ if (Astro.request.method === "POST") {
 
         return Astro.redirect("/dashboard")
       }
-    } catch {
-      error = "Unable to connect to the server."
+    } catch (err) {
+      console.error("API request failed:", err)
+      error = `Unable to connect to the server: ${err instanceof Error ? err.message : String(err)}`
     }
   }
 }
