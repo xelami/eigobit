@@ -25,6 +25,7 @@ const oauthRoutes: FastifyPluginAsync = async (app) => {
     reply.setCookie("google_oauth_state", state, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
+      domain: ".eigobit.com",
       sameSite: "lax",
       path: "/",
       maxAge: 60 * 10,
@@ -34,6 +35,7 @@ const oauthRoutes: FastifyPluginAsync = async (app) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
+      domain: ".eigobit.com",
       path: "/",
       maxAge: 60 * 10,
     })
@@ -172,6 +174,7 @@ const oauthRoutes: FastifyPluginAsync = async (app) => {
     reply.setCookie("toeic_session", session.token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
+      domain: ".eigobit.com",
       sameSite: "lax",
       path: "/",
       maxAge: 60 * 60 * 24 * 30,
