@@ -23,7 +23,7 @@ const app = Fastify({
 await app.register(cookie)
 
 await app.register(cors, {
-  origin: "http://localhost:4321",
+  origin: "https://eigobit.com",
   credentials: true,
 })
 
