@@ -1,7 +1,7 @@
 import type { APIContext } from "astro"
 import { getSessionToken } from "./session"
 
-const API_URL = import.meta.env.API_URL
+const API_URL = import.meta.env.PUBLIC_API_URL
 
 export async function apiFetch<T>(
   path: string,
