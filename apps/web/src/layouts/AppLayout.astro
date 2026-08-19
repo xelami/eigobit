@@ -1,0 +1,23 @@
+---
+import BaseLayout from "./BaseLayout.astro"
+import Navbar from "../components/Navbar.astro"
+
+interface Props {
+  title?: string
+  user?: {
+    id: string
+    email: string
+    name: string | null
+  }
+}
+
+const { title = "英語ビット", user } = Astro.props
+---
+
+<BaseLayout title={title}>
+  <Navbar user={user} />
+
+  <main class="min-h-screen">
+    <slot />
+  </main>
+</BaseLayout>

@@ -1,0 +1,32 @@
+---
+import { requireAuth } from "../../../lib/require-auth"
+import { apiFetch } from "../../../lib/api"
+
+const user = await requireAuth(Astro)
+
+if (user instanceof Response) {
+  return user
+}
+
+const id = Astro.params.id
+
+if (!id) {
+  return Astro.redirect("/vocabulary")
+}
+
+if (Astro.request.method === "POST") {
+  try {
+    await apiFetch(`/api/v1/vocabulary/${id}`, Astro, {
+      method: "DELETE",
+    })
+
+    return Astro.redirect("/vocabulary")
+  } catch (error) {
+    console.error("Failed to delete vocabulary item:", error)
+
+    return Astro.redirect(`/vocabulary/${id}?error=delete`)
+  }
+}
+
+return Astro.redirect(`/vocabulary/${id}`)
+---

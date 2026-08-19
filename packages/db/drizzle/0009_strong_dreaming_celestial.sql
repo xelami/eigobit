@@ -1,0 +1,1 @@
+ALTER TYPE "public"."practice_question_type" ADD VALUE 'sentence_insertion';

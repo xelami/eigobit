@@ -1,0 +1,558 @@
+---
+import AppLayout from "../layouts/AppLayout.astro"
+import { requireAuth } from "../lib/require-auth"
+import { apiFetch } from "../lib/api"
+
+const user = await requireAuth(Astro)
+
+if (user instanceof Response) {
+  return user
+}
+
+/*
+ * ============================================================================
+ * ONBOARDING
+ * ============================================================================
+ */
+
+let onboarding: {
+  profile: {
+    englishLevel: string
+    studyTime: string
+    onboardingCompleted: string | null
+  } | null
+  learningGoals: string[]
+  interests: string[]
+  examGoals: {
+    exam: string
+    toeicTargetScore: string | null
+    eikenTargetGrade: string | null
+  }[]
+} | null = null
+
+try {
+  onboarding = await apiFetch<{
+    profile: {
+      englishLevel: string
+      studyTime: string
+      onboardingCompleted: string | null
+    } | null
+    learningGoals: string[]
+    interests: string[]
+    examGoals: {
+      exam: string
+      toeicTargetScore: string | null
+      eikenTargetGrade: string | null
+    }[]
+  }>("/api/v1/onboarding", Astro)
+
+  // Force onboarding if the user has not completed it.
+  if (!onboarding?.profile?.onboardingCompleted) {
+    return Astro.redirect("/onboarding")
+  }
+} catch {
+  // If onboarding cannot be fetched, don't force onboarding.
+}
+
+/*
+ * ============================================================================
+ * DASHBOARD STATS
+ * ============================================================================
+ */
+
+let stats: {
+  practice: {
+    totalSessions: number
+    completedSessions: number
+    answeredQuestions: number
+    correctAnswers: number
+    accuracy: number
+  }
+  today: {
+    questionsAnswered: number
+  }
+  vocabulary: {
+    count: number
+  }
+} | null = null
+
+try {
+  stats = await apiFetch<{
+    practice: {
+      totalSessions: number
+      completedSessions: number
+      answeredQuestions: number
+      correctAnswers: number
+      accuracy: number
+    }
+    today: {
+      questionsAnswered: number
+    }
+    vocabulary: {
+      count: number
+    }
+  }>("/api/v1/practice/stats", Astro)
+} catch {
+  // Continue with empty stats if the API is unavailable.
+}
+
+let practiceSummary = null
+
+try {
+  practiceSummary = await apiFetch<{
+    completedSessions: number
+    totalQuestions: number
+    totalCorrectAnswers: number
+    averageScore: number
+    recentSessions: {
+      id: string
+      exam: string
+      part: string
+      totalQuestions: number
+      correctAnswers: number
+      completedAt: string | null
+      createdAt: string
+    }[]
+  }>("/api/v1/practice/summary", Astro)
+} catch {
+  // Continue without practice summary.
+}
+
+const completedPracticeSessions = practiceSummary?.completedSessions ?? 0
+
+const practiceStats = stats?.practice ?? {
+  totalSessions: 0,
+  completedSessions: 0,
+  answeredQuestions: 0,
+  correctAnswers: 0,
+  accuracy: 0,
+}
+
+const todayQuestions = stats?.today.questionsAnswered ?? 0
+
+const vocabularyCount = stats?.vocabulary.count ?? 0
+
+/*
+ * ============================================================================
+ * GOALS
+ * ============================================================================
+ */
+
+const goals = onboarding?.learningGoals ?? []
+const examGoals = onboarding?.examGoals ?? []
+
+const isToeic = goals.includes("toeic")
+const isEiken = goals.includes("eiken")
+
+const primaryGoal = isToeic ? "TOEIC" : isEiken ? "EIKEN" : "English"
+
+const toeicGoal = examGoals.find((goal) => goal.exam === "toeic")
+
+const eikenGoal = examGoals.find((goal) => goal.exam === "eiken")
+
+const targetScore = toeicGoal?.toeicTargetScore
+
+const targetGrade = eikenGoal?.eikenTargetGrade
+
+/*
+ * ============================================================================
+ * TODAY'S PHRASE
+ * ============================================================================
+ */
+
+const phrase = {
+  english: "It's worth a shot.",
+  japanese: "やってみる価値はあるよ。",
+  explanation:
+    "Use this when you think something is worth trying, even if you're not sure it will work.",
+  example: "I don't know if I'll pass, but it's worth a shot.",
+}
+
+/*
+ * ============================================================================
+ * TODAY'S TARGET
+ * ============================================================================
+ */
+
+const studyTime = onboarding?.profile?.studyTime ?? "10"
+
+const dailyTarget =
+  studyTime === "5"
+    ? 5
+    : studyTime === "10"
+      ? 10
+      : studyTime === "20"
+        ? 20
+        : studyTime === "30"
+          ? 30
+          : studyTime === "60"
+            ? 60
+            : 10
+
+const todayProgress = Math.min(
+  Math.round((todayQuestions / dailyTarget) * 100),
+  100,
+)
+
+/*
+ * ============================================================================
+ * PRACTICE OPTIONS
+ * ============================================================================
+ */
+
+const secondaryPracticeOptions = [
+  {
+    title: "単語",
+    description: "保存した単語を復習しましょう",
+    href: "/vocabulary",
+    icon: "Aa",
+    stat: `${vocabularyCount} 語を保存中`,
+    available: true,
+  },
+  {
+    title: "リスニング",
+    description: "英語を聞き取る力を鍛えましょう",
+    href: "/study?type=listening",
+    icon: "♫",
+    stat: "リスニングを練習",
+    available: false,
+  },
+  {
+    title: "リーディング",
+    description: "英文読解力を伸ばしましょう",
+    href: "/study?type=reading",
+    icon: "▤",
+    stat: "リーディングを練習",
+    available: false,
+  },
+]
+---
+
+<AppLayout title="Dashboard" user={user}>
+  <main class="mx-auto max-w-7xl px-6 py-8">
+    <!-- ================================================================== -->
+    <!-- HEADER -->
+    <!-- ================================================================== -->
+
+    <div
+      class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
+    >
+      <div>
+        <p class="text-sm font-medium text-gray-500">
+          おかえりなさい{user.name ? `、${user.name}さん` : ""}
+        </p>
+        <h1 class="mt-1 text-3xl font-bold tracking-tight">
+          今日も英語を学びましょう
+        </h1>
+      </div>
+
+      <a
+        href="/settings"
+        class="text-sm font-medium text-gray-500 transition hover:text-gray-900"
+      >
+        設定 →
+      </a>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- PRIMARY PRACTICE -->
+    <!-- ================================================================== -->
+
+    <section class="mt-7">
+      <div class="mb-4">
+        <h2 class="text-xl font-bold">練習する</h2>
+        <p class="mt-1 text-sm text-gray-500">今日の学習内容を選びましょう。</p>
+      </div>
+
+      <div class="grid gap-4 lg:grid-cols-3">
+        <!-- Primary CTA -->
+        <a
+          href="/practice"
+          class="group relative overflow-hidden rounded-2xl bg-gray-900 p-6 text-white transition hover:-translate-y-0.5 hover:bg-gray-800 hover:shadow-lg lg:col-span-2"
+        >
+          <div class="flex items-start justify-between">
+            <div
+              class="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 text-lg font-bold"
+            >
+              →
+            </div>
+
+            <span
+              class="rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-gray-300"
+            >
+              {primaryGoal}
+            </span>
+          </div>
+
+          <div class="mt-7">
+            <p class="text-sm font-medium text-gray-400">おすすめ</p>
+
+            <h3 class="mt-1 text-2xl font-bold">
+              {primaryGoal} Part 5 を練習
+            </h3>
+
+            <p class="mt-2 max-w-lg text-sm leading-6 text-gray-300">
+              {
+                practiceStats.completedSessions === 0
+                  ? "最初の練習を始めて、スコアアップを目指しましょう。"
+                  : "もう一度練習して、正答率をさらに高めましょう。"
+              }
+            </p>
+          </div>
+
+          <div class="mt-7 flex items-center justify-between">
+            <span class="text-sm text-gray-400">
+              {
+                practiceStats.completedSessions === 0
+                  ? "最初の練習セッション"
+                  : `${practiceStats.completedSessions}回完了`
+              }
+            </span>
+            <span
+              class="rounded-xl bg-white px-5 py-3 text-sm font-semibold text-gray-900 transition group-hover:bg-gray-100"
+            >
+              練習を始める →
+            </span>
+          </div>
+        </a>
+
+        <!-- Today's target -->
+
+        <section class="rounded-2xl border bg-white p-6">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <p class="text-sm font-medium text-gray-500">今日の目標</p>
+
+              <p class="mt-1 text-2xl font-bold">
+                {todayQuestions}
+
+                <span class="text-base font-medium text-gray-400">
+                  / {dailyTarget}問
+                </span>
+              </p>
+            </div>
+
+            <span
+              class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600"
+            >
+              {studyTime}
+            </span>
+          </div>
+
+          <div class="mt-6">
+            <div class="h-2 overflow-hidden rounded-full bg-gray-100">
+              <div
+                class="h-full rounded-full bg-gray-900 transition-all duration-500"
+                style={`width: ${todayProgress}%`}
+              >
+              </div>
+            </div>
+
+            <p class="mt-3 text-xs text-gray-500">
+              {
+                todayProgress >= 100
+                  ? "今日の目標を達成しました。素晴らしいです！"
+                  : `あと${dailyTarget - todayQuestions}問で今日の目標達成です。`
+              }
+            </p>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- SECONDARY PRACTICE -->
+    <!-- ================================================================== -->
+    <!-- ================================================================== -->
+
+    <section class="mt-5">
+      <div class="grid gap-4 sm:grid-cols-3">
+        {
+          secondaryPracticeOptions.map((option) =>
+            option.available ? (
+              <a
+                href={option.href}
+                class="group rounded-2xl border bg-white p-5 transition hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-sm"
+              >
+                <div class="flex items-start justify-between">
+                  <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-sm font-bold text-gray-700">
+                    {option.icon}
+                  </div>
+                  <span class="text-gray-400 transition group-hover:translate-x-1 group-hover:text-gray-900">
+                    →
+                  </span>
+                </div>
+
+                <h3 class="mt-5 font-semibold">{option.title}</h3>
+                <p class="mt-1 text-sm leading-5 text-gray-500">
+                  {option.description}
+                </p>
+                <p class="mt-4 border-t pt-3 text-xs font-medium text-gray-500">
+                  {option.stat}
+                </p>
+              </a>
+            ) : (
+              <div class="relative rounded-2xl border bg-gray-50 p-5 opacity-70">
+                <div class="flex items-start justify-between">
+                  <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-sm font-bold text-gray-500">
+                    {option.icon}
+                  </div>
+                  <span class="rounded-full bg-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-500">
+                    開発中
+                  </span>
+                </div>
+                <h3 class="mt-5 font-semibold text-gray-700">{option.title}</h3>
+                <p class="mt-1 text-sm leading-5 text-gray-500">
+                  {option.description}
+                </p>
+                <p class="mt-4 border-t pt-3 text-xs font-medium text-gray-400">
+                  {option.stat}
+                </p>
+              </div>
+            ),
+          )
+        }
+      </div>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- PROGRESS -->
+    <!-- ================================================================== -->
+
+    <section class="mt-10">
+      <div class="mb-4">
+        <h2 class="text-xl font-bold">学習の進捗</h2>
+
+        <p class="mt-1 text-sm text-gray-500">
+          学習を続けるほど、ここにあなたの記録が積み上がっていきます。
+        </p>
+      </div>
+
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <!-- Sessions -->
+
+        <div class="rounded-2xl border bg-white p-5">
+          <p class="text-sm text-gray-500">練習セッション</p>
+
+          <p class="mt-2 text-3xl font-bold">
+            {completedPracticeSessions}
+          </p>
+
+          <p class="mt-1 text-xs text-gray-500">完了</p>
+        </div>
+
+        <!-- Questions -->
+
+        <div class="rounded-2xl border bg-white p-5">
+          <p class="text-sm text-gray-500">回答した問題</p>
+
+          <p class="mt-2 text-3xl font-bold">
+            {practiceStats.answeredQuestions}
+          </p>
+
+          <p class="mt-1 text-xs text-gray-500">すべての練習セッション</p>
+        </div>
+
+        <!-- Accuracy -->
+
+        <div class="rounded-2xl border bg-white p-5">
+          <p class="text-sm text-gray-500">正答率</p>
+
+          <p class="mt-2 text-3xl font-bold">
+            {practiceStats.accuracy}%
+          </p>
+
+          <p class="mt-1 text-xs text-gray-500">
+            {practiceStats.correctAnswers}問正解
+          </p>
+        </div>
+
+        <!-- Vocabulary -->
+
+        <div class="rounded-2xl border bg-white p-5">
+          <p class="text-sm text-gray-500">保存した単語</p>
+
+          <p class="mt-2 text-3xl font-bold">
+            {vocabularyCount}
+          </p>
+
+          <p class="mt-1 text-xs text-gray-500">語</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================== -->
+
+    <!-- LEARNING FOCUS + PHRASE -->
+
+    <!-- ================================================================== -->
+
+    <div class="mt-10 grid gap-6 lg:grid-cols-3">
+      <!-- Learning focus -->
+
+      <section class="rounded-2xl border bg-white p-6 lg:col-span-2">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <p class="text-sm font-medium text-gray-500">あなたの学習目標</p>
+
+            <h2 class="mt-1 text-2xl font-bold">
+              {primaryGoal}
+            </h2>
+
+            <p class="mt-2 max-w-xl text-sm leading-6 text-gray-600">
+              {
+                isToeic
+                  ? "TOEICのスコアアップに必要な英語力を身につけましょう。"
+                  : isEiken
+                    ? "EIKENの目標達成に必要な英語力を身につけましょう。"
+                    : "自分のペースで英語力を伸ばしていきましょう。"
+              }
+            </p>
+          </div>
+
+          {
+            (targetScore || targetGrade) && (
+              <div class="shrink-0 rounded-xl bg-gray-50 px-4 py-3 text-right">
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  目標
+                </p>
+
+                <p class="mt-1 font-bold">
+                  {targetScore
+                    ? `TOEIC ${targetScore}点`
+                    : targetGrade
+                      ? `EIKEN ${targetGrade.replace("_", " ")}`
+                      : ""}
+                </p>
+              </div>
+            )
+          }
+        </div>
+      </section>
+
+      <!-- Today's phrase -->
+
+      <section class="rounded-2xl bg-gray-900 p-6 text-white">
+        <p class="text-sm font-medium text-gray-400">今日のフレーズ</p>
+
+        <h2 class="mt-3 text-xl font-bold">
+          {phrase.english}
+        </h2>
+
+        <p class="mt-2 text-sm text-gray-300">
+          {phrase.japanese}
+        </p>
+
+        <div class="mt-5 border-t border-gray-700 pt-4">
+          <p class="text-sm leading-6 text-gray-300">
+            {phrase.explanation}
+          </p>
+
+          <p class="mt-4 text-sm italic text-gray-400">
+            "{phrase.example}"
+          </p>
+        </div>
+      </section>
+    </div>
+  </main>
+</AppLayout>

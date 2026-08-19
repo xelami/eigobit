@@ -1,0 +1,56 @@
+---
+import AppLayout from "../../layouts/AppLayout.astro"
+---
+
+<AppLayout title="Settings">
+  <div class="mx-auto max-w-5xl px-6 py-10">
+    <h1 class="text-3xl font-bold">
+      Settings
+    </h1>
+
+    <p class="mt-2 text-gray-600">
+      Manage your account and preferences.
+    </p>
+
+    <div class="mt-8 grid gap-4 sm:grid-cols-2">
+      <a
+        href="/settings/account"
+        class="rounded-xl border p-6 transition hover:bg-gray-50"
+      >
+        <h2 class="font-semibold">
+          Account
+        </h2>
+
+        <p class="mt-1 text-sm text-gray-600">
+          Manage your profile and account details.
+        </p>
+      </a>
+
+      <a
+        href="/settings/security"
+        class="rounded-xl border p-6 transition hover:bg-gray-50"
+      >
+        <h2 class="font-semibold">
+          Security
+        </h2>
+
+        <p class="mt-1 text-sm text-gray-600">
+          Manage your password and sessions.
+        </p>
+      </a>
+
+      <a
+        href="/settings/connections"
+        class="rounded-xl border p-6 transition hover:bg-gray-50"
+      >
+        <h2 class="font-semibold">
+          Connected accounts
+        </h2>
+
+        <p class="mt-1 text-sm text-gray-600">
+          Manage Google, Apple and LINE connections.
+        </p>
+      </a>
+    </div>
+  </div>
+</AppLayout>

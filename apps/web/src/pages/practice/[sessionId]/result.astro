@@ -1,0 +1,399 @@
+---
+import AppLayout from "../../../layouts/AppLayout.astro"
+import { requireAuth } from "../../../lib/require-auth"
+import { apiFetch } from "../../../lib/api"
+
+const user = await requireAuth(Astro)
+
+if (user instanceof Response) {
+  return user
+}
+
+const { sessionId } = Astro.params
+
+if (!sessionId) {
+  return Astro.redirect("/study")
+}
+
+type ResultQuestion = {
+  id: string
+  questionNumber: number
+  questionText: string
+  explanation: string | null
+  selectedOptionId: string | null
+  isCorrect: boolean | null
+  correctOptionId: string | null
+  correctOptionLabel: string | null
+  correctOptionText: string | null
+  selectedOptionLabel: string | null
+  selectedOptionText: string | null
+}
+
+type ResultResponse = {
+  session: {
+    id: string
+    exam: string
+    part: string
+    status: string
+    totalQuestions: number
+    answeredQuestions: number
+    correctAnswers: number
+    scorePercentage: number
+    completedAt: string | null
+  }
+  questions: ResultQuestion[]
+}
+
+let result: ResultResponse
+
+try {
+  result = await apiFetch<ResultResponse>(
+    `/api/v1/practice/sessions/${sessionId}/result`,
+    Astro,
+  )
+} catch (error) {
+  console.error("Failed to load practice result:", error)
+
+  return Astro.redirect("/study")
+}
+
+const { session, questions } = result
+
+const incorrectQuestions = questions.filter(
+  (question) => question.isCorrect !== true,
+)
+
+const incorrectAnswers = incorrectQuestions.length
+const score = session.scorePercentage
+---
+
+<AppLayout
+  title={`${session.exam.toUpperCase()} Part ${session.part} - Results`}
+  user={user}
+>
+  <main class="mx-auto max-w-3xl px-6 py-10">
+    <!-- ================================================================ -->
+    <!-- HEADER -->
+    <!-- ================================================================ -->
+
+    <div class="mb-8">
+      <a
+        href="/study"
+        class="text-sm font-medium text-gray-500 transition hover:text-gray-900"
+      >
+        ← 学習に戻る
+      </a>
+
+      <div class="mt-6">
+        <p class="text-sm font-medium text-gray-500">
+          {session.exam.toUpperCase()} Part {session.part}
+        </p>
+
+        <h1 class="mt-1 text-3xl font-bold tracking-tight">
+          練習結果
+        </h1>
+
+        <p class="mt-2 text-sm text-gray-500">
+          お疲れさまでした。結果を確認して、間違えた問題を復習しましょう。
+        </p>
+      </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- SCORE -->
+    <!-- ================================================================ -->
+
+    <section class="rounded-2xl border bg-white p-6 sm:p-8">
+      <div class="text-center">
+        <p class="text-sm font-medium text-gray-500">
+          スコア
+        </p>
+
+        <p class="mt-2 text-5xl font-bold">
+          {score}%
+        </p>
+
+        <p class="mt-3 text-lg text-gray-600">
+          {session.correctAnswers} / {session.totalQuestions} 問正解
+        </p>
+      </div>
+
+      <div class="mt-6 h-2 overflow-hidden rounded-full bg-gray-100">
+        <div
+          class="h-full rounded-full bg-gray-900 transition-all"
+          style={`width: ${score}%`}
+        >
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================ -->
+    <!-- SUMMARY -->
+    <!-- ================================================================ -->
+
+    <section class="mt-6 grid grid-cols-3 gap-3">
+      <div class="rounded-xl border bg-white p-4 text-center">
+        <p class="text-sm text-gray-500">
+          問題数
+        </p>
+
+        <p class="mt-1 text-xl font-bold">
+          {session.totalQuestions}
+        </p>
+      </div>
+
+      <div class="rounded-xl border bg-white p-4 text-center">
+        <p class="text-sm text-gray-500">
+          正解
+        </p>
+
+        <p class="mt-1 text-xl font-bold text-green-700">
+          {session.correctAnswers}
+        </p>
+      </div>
+
+      <div class="rounded-xl border bg-white p-4 text-center">
+        <p class="text-sm text-gray-500">
+          不正解
+        </p>
+
+        <p class="mt-1 text-xl font-bold text-red-700">
+          {incorrectAnswers}
+        </p>
+      </div>
+    </section>
+
+    <!-- ================================================================ -->
+    <!-- REVIEW CTA -->
+    <!-- ================================================================ -->
+
+    {
+      incorrectAnswers > 0 ? (
+        <section class="mt-6 rounded-2xl border border-red-200 bg-red-50 p-6">
+          <div class="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p class="text-sm font-semibold text-red-700">
+                復習がおすすめです
+              </p>
+
+              <h2 class="mt-1 text-xl font-bold text-gray-900">
+                {incorrectAnswers}問を復習しましょう
+              </h2>
+
+              <p class="mt-1 text-sm leading-6 text-gray-600">
+                間違えた問題をもう一度確認して、正解の理由を理解しましょう。
+              </p>
+            </div>
+
+            <a
+              href="#review"
+              class="inline-flex shrink-0 items-center justify-center rounded-xl bg-gray-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-gray-700"
+            >
+              間違えた問題を復習 →
+            </a>
+          </div>
+        </section>
+      ) : (
+        <section class="mt-6 rounded-2xl border border-green-200 bg-green-50 p-6">
+          <p class="text-sm font-semibold text-green-700">
+            全問正解！
+          </p>
+
+          <h2 class="mt-1 text-xl font-bold text-gray-900">
+            素晴らしいです 🎉
+          </h2>
+
+          <p class="mt-1 text-sm leading-6 text-gray-600">
+            今回は間違えた問題がありません。
+          </p>
+        </section>
+      )
+    }
+
+    <!-- ================================================================ -->
+    <!-- REVIEW -->
+    <!-- ================================================================ -->
+
+    <section id="review" class="mt-10">
+      <div class="mb-5">
+        <div class="flex items-end justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-bold">
+              問題を復習
+            </h2>
+
+            <p class="mt-1 text-sm text-gray-500">
+              間違えた問題を重点的に確認しましょう。
+            </p>
+          </div>
+
+          <button
+            id="toggle-all"
+            type="button"
+            class="shrink-0 text-sm font-medium text-gray-600 transition hover:text-gray-900"
+          >
+            全ての問題を見る
+          </button>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- QUESTIONS -->
+      <!-- ============================================================ -->
+
+      <div id="review-questions" class="space-y-5">
+        {
+          questions.map((question) => (
+            <article
+              class:list={[
+                "review-question rounded-2xl border bg-white p-6",
+                question.isCorrect === true ? "correct-question hidden" : "",
+              ]}
+              data-correct={question.isCorrect === true ? "true" : "false"}
+            >
+              <!-- Question header -->
+
+              <div class="mb-5 flex items-center justify-between gap-4">
+                <p class="text-sm font-medium text-gray-500">
+                  問題 {question.questionNumber}
+                </p>
+
+                {question.isCorrect === true ? (
+                  <span class="rounded-full bg-green-50 px-3 py-1 text-sm font-medium text-green-700">
+                    ✓ 正解
+                  </span>
+                ) : (
+                  <span class="rounded-full bg-red-50 px-3 py-1 text-sm font-medium text-red-700">
+                    ✕ 不正解
+                  </span>
+                )}
+              </div>
+
+              <!-- Question -->
+
+              <p class="text-lg font-semibold leading-8">
+                {question.questionText}
+              </p>
+
+              <!-- Your answer -->
+
+              <div class="mt-6">
+                <p class="mb-2 text-sm font-medium text-gray-500">
+                  あなたの回答
+                </p>
+
+                {question.selectedOptionText ? (
+                  <div
+                    class:list={[
+                      "rounded-xl border p-4",
+                      question.isCorrect
+                        ? "border-green-300 bg-green-50"
+                        : "border-red-300 bg-red-50",
+                    ]}
+                  >
+                    <p class="font-medium">
+                      <span class="mr-2">
+                        {question.selectedOptionLabel}.
+                      </span>
+
+                      {question.selectedOptionText}
+                    </p>
+                  </div>
+                ) : (
+                  <div class="rounded-xl border bg-gray-50 p-4">
+                    <p class="text-sm text-gray-500">
+                      回答なし
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <!-- Correct answer -->
+
+              <div class="mt-4">
+                <p class="mb-2 text-sm font-medium text-gray-500">
+                  正解
+                </p>
+
+                <div class="rounded-xl border border-green-300 bg-green-50 p-4">
+                  <p class="font-medium text-green-900">
+                    <span class="mr-2">
+                      {question.correctOptionLabel}.
+                    </span>
+
+                    {question.correctOptionText}
+                  </p>
+                </div>
+              </div>
+
+              <!-- Explanation -->
+
+              <div class="mt-5 border-t pt-5">
+                <p class="mb-2 text-sm font-medium text-gray-500">
+                  解説
+                </p>
+
+                <p class="text-sm leading-6 text-gray-700">
+                  {question.explanation ?? "解説はありません。"}
+                </p>
+              </div>
+            </article>
+          ))
+        }
+      </div>
+    </section>
+
+    <!-- ================================================================ -->
+    <!-- ACTIONS -->
+    <!-- ================================================================ -->
+
+    <section class="mt-8 rounded-2xl border bg-white p-6">
+      <div>
+        <h2 class="font-bold">
+          次はどうしますか？
+        </h2>
+
+        <p class="mt-1 text-sm text-gray-500">
+          もう一度練習するか、学習に戻りましょう。
+        </p>
+      </div>
+
+      <div class="mt-5 flex flex-col gap-3 sm:flex-row">
+        <a
+          href="/practice"
+          class="flex-1 rounded-xl bg-gray-900 px-6 py-3 text-center text-sm font-semibold text-white transition hover:bg-gray-700"
+        >
+          もう一度挑戦する
+        </a>
+
+        <a
+          href="/study"
+          class="flex-1 rounded-xl border bg-white px-6 py-3 text-center text-sm font-semibold transition hover:bg-gray-50"
+        >
+          学習に戻る
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const toggleButton = document.querySelector("#toggle-all")
+    const correctQuestions = document.querySelectorAll(".correct-question")
+
+    let showingAll = false
+
+    toggleButton?.addEventListener("click", () => {
+      showingAll = !showingAll
+
+      correctQuestions.forEach((question) => {
+        question.classList.toggle("hidden", !showingAll)
+      })
+
+      if (toggleButton) {
+        toggleButton.textContent = showingAll
+          ? "間違えた問題だけ見る"
+          : "全ての問題を見る"
+      }
+    })
+  </script>
+</AppLayout>

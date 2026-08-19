@@ -1,0 +1,66 @@
+---
+interface Props {
+  value: number;
+  max?: number;
+  label?: string;
+  showValue?: boolean;
+  size?: "sm" | "md" | "lg";
+}
+
+const {
+  value,
+  max = 100,
+  label,
+  showValue = false,
+  size = "md",
+} = Astro.props;
+
+const percentage = Math.min(
+  Math.max((value / max) * 100, 0),
+  100,
+);
+
+const heights = {
+  sm: "h-1.5",
+  md: "h-2",
+  lg: "h-3",
+};
+---
+
+<div class="w-full">
+  {
+    (label || showValue) && (
+      <div class="mb-2 flex items-center justify-between text-sm">
+        {
+          label && (
+            <span class="font-medium">
+              {label}
+            </span>
+          )
+        }
+
+        {
+          showValue && (
+            <span class="text-[var(--muted)]">
+              {value}/{max}
+            </span>
+          )
+        }
+      </div>
+    )
+  }
+
+  <div
+    class:list={[
+      "w-full overflow-hidden rounded-full bg-slate-100",
+      heights[size],
+    ]}
+  >
+    <div
+      class:list={[
+        "h-full rounded-full bg-[var(--primary)] transition-all duration-500",
+      ]}
+      style={`width: ${percentage}%`}
+    />
+  </div>
+</div>

@@ -1,0 +1,354 @@
+---
+import AppLayout from "../layouts/AppLayout.astro"
+import { getCurrentUser } from "../lib/auth"
+import { apiFetch } from "../lib/api"
+
+const user = await getCurrentUser(Astro)
+
+if (!user) {
+  return Astro.redirect("/login")
+}
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData()
+
+  const englishLevel = String(form.get("englishLevel") || "unknown")
+  const studyTime = String(form.get("studyTime") || "whenever")
+
+  const learningGoals = form.getAll("goals").map(String)
+  const interests = form.getAll("interests").map(String)
+
+  const examGoals = []
+
+  const toeicTargetScore = String(form.get("toeicTargetScore") || "").trim()
+  const eikenTargetGrade = String(form.get("eikenTargetGrade") || "").trim()
+
+  if (learningGoals.includes("toeic")) {
+    examGoals.push({
+      exam: "toeic",
+      toeicTargetScore: toeicTargetScore || undefined,
+    })
+  }
+
+  if (learningGoals.includes("eiken")) {
+    examGoals.push({
+      exam: "eiken",
+      eikenTargetGrade: eikenTargetGrade || undefined,
+    })
+  }
+
+  try {
+    await apiFetch("/api/v1/onboarding", Astro, {
+      method: "POST",
+      body: JSON.stringify({
+        englishLevel,
+        studyTime,
+        learningGoals,
+        interests,
+        examGoals,
+      }),
+    })
+
+    return Astro.redirect("/dashboard")
+  } catch (error) {
+    console.error("ONBOARDING SUBMIT ERROR:", error)
+
+    return Astro.redirect("/onboarding?error=1")
+  }
+}
+
+let onboarding = null
+
+try {
+  onboarding = await apiFetch<{
+    profile: {
+      englishLevel: string
+      studyTime: string
+      onboardingCompleted: string | null
+    } | null
+    learningGoals: string[]
+    interests: string[]
+    examGoals: {
+      exam: string
+      toeicTargetScore: string | null
+      eikenTargetGrade: string | null
+    }[]
+  }>("/api/v1/onboarding", Astro)
+} catch {
+  // Continue with an empty onboarding form.
+}
+
+if (onboarding?.profile?.onboardingCompleted) {
+  return Astro.redirect("/dashboard")
+}
+
+const error = Astro.url.searchParams.get("error")
+---
+
+<AppLayout title="Get Started" user={user}>
+  <main class="mx-auto max-w-3xl px-6 py-12">
+    <div class="mb-10">
+      <p class="mb-2 text-sm font-medium text-gray-500">
+        Welcome{user.name ? `, ${user.name}` : ""}
+      </p>
+
+      <h1 class="text-3xl font-bold tracking-tight">
+        Let's personalize your learning
+      </h1>
+
+      <p class="mt-3 text-gray-600">
+        Whether you're preparing for TOEIC or EIKEN, improving your English, or
+        simply learning for fun, we'll use this information to tailor your
+        experience.
+      </p>
+    </div>
+
+    {
+      error && (
+        <div class="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          Something went wrong while saving your preferences. Please try again.
+        </div>
+      )
+    }
+
+    <form method="POST" class="space-y-8">
+      <!-- English level -->
+      <section class="rounded-xl border bg-white p-6">
+        <h2 class="text-lg font-semibold">
+          How would you describe your English?
+        </h2>
+
+        <p class="mt-1 text-sm text-gray-500">
+          Don't worry if you're not sure.
+        </p>
+
+        <div class="mt-5 grid gap-3 sm:grid-cols-2">
+          {
+            [
+              ["beginner", "Beginner", "I'm just getting started"],
+              ["elementary", "Elementary", "I know the basics"],
+              ["intermediate", "Intermediate", "I can communicate fairly well"],
+              [
+                "upper_intermediate",
+                "Upper-intermediate",
+                "I can handle most situations",
+              ],
+              ["advanced", "Advanced", "I'm highly comfortable in English"],
+              ["unknown", "Not sure", "I'd rather find out"],
+            ].map(([value, label, description]) => (
+              <label class="cursor-pointer rounded-lg border p-4 transition hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="englishLevel"
+                  value={value}
+                  checked={
+                    onboarding?.profile?.englishLevel === value ||
+                    (!onboarding?.profile && value === "unknown")
+                  }
+                  class="mr-2"
+                  required
+                />
+
+                <span class="font-medium">{label}</span>
+
+                <span class="mt-1 block text-sm text-gray-500">
+                  {description}
+                </span>
+              </label>
+            ))
+          }
+        </div>
+      </section>
+
+      <!-- Goals -->
+      <section class="rounded-xl border bg-white p-6">
+        <h2 class="text-lg font-semibold">
+          What are you learning English for?
+        </h2>
+
+        <p class="mt-1 text-sm text-gray-500">Choose as many as you like.</p>
+
+        <div class="mt-5 grid gap-3 sm:grid-cols-2">
+          {
+            [
+              ["toeic", "Prepare for TOEIC"],
+              ["eiken", "Prepare for EIKEN"],
+              ["improve_english", "Improve my English"],
+              ["speaking", "Improve speaking"],
+              ["vocabulary", "Build vocabulary"],
+              ["listening", "Improve listening"],
+              ["reading", "Improve reading"],
+              ["writing", "Improve writing"],
+              ["school", "School / university"],
+              ["work", "Work / career"],
+              ["casual", "Learn casually"],
+            ].map(([value, label]) => (
+              <label class="flex cursor-pointer items-center gap-3 rounded-lg border p-4 transition hover:bg-gray-50">
+                <input
+                  type="checkbox"
+                  name="goals"
+                  value={value}
+                  checked={onboarding?.learningGoals?.includes(value)}
+                />
+
+                <span class="text-sm font-medium">{label}</span>
+              </label>
+            ))
+          }
+        </div>
+      </section>
+
+      <!-- TOEIC target -->
+      <section class="rounded-xl border bg-white p-6">
+        <h2 class="text-lg font-semibold">TOEIC target score</h2>
+
+        <p class="mt-1 text-sm text-gray-500">
+          Optional. You can change this later.
+        </p>
+
+        <div class="mt-5">
+          <input
+            type="number"
+            name="toeicTargetScore"
+            min="10"
+            max="990"
+            step="5"
+            placeholder="e.g. 700"
+            value={onboarding?.examGoals?.find((goal) => goal.exam === "toeic")
+              ?.toeicTargetScore || ""}
+            class="w-full rounded-lg border px-4 py-3 outline-none transition focus:border-gray-900"
+          />
+        </div>
+      </section>
+
+      <!-- EIKEN target -->
+      <section class="rounded-xl border bg-white p-6">
+        <h2 class="text-lg font-semibold">EIKEN target grade</h2>
+
+        <p class="mt-1 text-sm text-gray-500">
+          Optional. You can change this later.
+        </p>
+
+        <div class="mt-5">
+          <select
+            name="eikenTargetGrade"
+            class="w-full rounded-lg border px-4 py-3 outline-none transition focus:border-gray-900"
+          >
+            <option value="">Select a target grade</option>
+
+            {
+              [
+                ["grade_5", "Grade 5"],
+                ["grade_4", "Grade 4"],
+                ["grade_3", "Grade 3"],
+                ["pre_2", "Pre-2"],
+                ["pre_2_plus", "Pre-2 Plus"],
+                ["grade_2", "Grade 2"],
+                ["pre_1", "Pre-1"],
+                ["grade_1", "Grade 1"],
+              ].map(([value, label]) => (
+                <option
+                  value={value}
+                  selected={
+                    onboarding?.examGoals?.find((goal) => goal.exam === "eiken")
+                      ?.eikenTargetGrade === value
+                  }
+                >
+                  {label}
+                </option>
+              ))
+            }
+          </select>
+        </div>
+      </section>
+
+      <!-- Study time -->
+      <section class="rounded-xl border bg-white p-6">
+        <h2 class="text-lg font-semibold">
+          How much time do you usually have?
+        </h2>
+
+        <p class="mt-1 text-sm text-gray-500">
+          We'll use this to recommend activities that fit your schedule.
+        </p>
+
+        <div class="mt-5 grid gap-3 sm:grid-cols-3">
+          {
+            [
+              ["5", "5 minutes"],
+              ["10", "10 minutes"],
+              ["20", "20 minutes"],
+              ["30", "30 minutes"],
+              ["60", "1 hour+"],
+              ["whenever", "Whenever I can"],
+            ].map(([value, label]) => (
+              <label class="cursor-pointer rounded-lg border p-4 text-center transition hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="studyTime"
+                  value={value}
+                  checked={
+                    onboarding?.profile?.studyTime === value ||
+                    (!onboarding?.profile && value === "whenever")
+                  }
+                  class="mr-2"
+                  required
+                />
+
+                <span class="text-sm font-medium">{label}</span>
+              </label>
+            ))
+          }
+        </div>
+      </section>
+
+      <!-- Interests -->
+      <section class="rounded-xl border bg-white p-6">
+        <h2 class="text-lg font-semibold">What are you interested in?</h2>
+
+        <p class="mt-1 text-sm text-gray-500">
+          We'll eventually use your interests to personalize your content.
+        </p>
+
+        <div class="mt-5 flex flex-wrap gap-3">
+          {
+            [
+              "Movies",
+              "TV",
+              "Music",
+              "Gaming",
+              "Travel",
+              "Business",
+              "Technology",
+              "Sports",
+              "News",
+              "Food",
+              "Fashion",
+              "Culture",
+            ].map((interest) => (
+              <label class="cursor-pointer rounded-full border px-4 py-2 transition hover:bg-gray-50">
+                <input
+                  type="checkbox"
+                  name="interests"
+                  value={interest}
+                  checked={onboarding?.interests?.includes(interest)}
+                  class="mr-2"
+                />
+
+                <span class="text-sm">{interest}</span>
+              </label>
+            ))
+          }
+        </div>
+      </section>
+
+      <!-- Submit -->
+      <button
+        type="submit"
+        class="w-full rounded-lg bg-gray-900 px-6 py-3 font-medium text-white transition hover:bg-gray-700"
+      >
+        Continue to my dashboard
+      </button>
+    </form>
+  </main>
+</AppLayout>

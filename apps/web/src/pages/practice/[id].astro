@@ -1,0 +1,1725 @@
+---
+import AppLayout from "../../layouts/AppLayout.astro"
+import { requireAuth } from "../../lib/require-auth"
+import { apiFetch } from "../../lib/api"
+
+const user = await requireAuth(Astro)
+
+if (user instanceof Response) {
+  return user
+}
+
+const { id } = Astro.params
+
+if (!id) {
+  return Astro.redirect("/dashboard")
+}
+
+type VocabularyItem = {
+  word: string
+  meaning: string
+  exampleSentence: string
+  saved: boolean
+}
+
+type PracticeQuestion = {
+  id: string
+  questionNumber: number
+  passageId: string | null
+  questionText: string
+  questionType: string
+  explanation: string | null
+  difficulty: string | null
+  vocabulary: VocabularyItem[]
+  selectedOptionId: string | null
+  isCorrect: boolean | null
+  options: {
+    id: string
+    label: string
+    text: string
+  }[]
+}
+
+type PracticeSession = {
+  id: string
+  exam: string
+  part: string
+  totalQuestions: number
+  correctAnswers: number
+  completedAt: string | null
+}
+
+type PracticePassage = {
+  id: string
+  exam: string
+  part: string
+  title: string | null
+  passageText: string
+  difficulty: string | null
+  questions: {
+    id: string
+    questionNumber: number | null
+    questionType: string
+    questionText: string
+    explanation: string | null
+    difficulty: string | null
+    options: {
+      id: string
+      label: string
+      text: string
+    }[]
+  }[]
+}
+
+let session: PracticeSession | null = null
+let questions: PracticeQuestion[] = []
+let passages: PracticePassage[] = []
+
+try {
+  const data = await apiFetch<{
+    session: PracticeSession
+    questions: PracticeQuestion[]
+  }>(`/api/v1/practice/sessions/${id}`, Astro)
+
+  session = data.session
+  questions = data.questions
+
+  if (session.part === "6" || session.part === "7") {
+    const passageData = await apiFetch<{
+      passages: PracticePassage[]
+    }>(
+      `/api/v1/practice/passages?exam=${encodeURIComponent(
+        session.exam,
+      )}&part=${encodeURIComponent(session.part)}&limit=20`,
+      Astro,
+    )
+
+    passages = passageData.passages
+  }
+} catch {
+  return Astro.redirect("/dashboard")
+}
+
+if (!session || questions.length === 0) {
+  return Astro.redirect("/dashboard")
+}
+
+const isPart7 = session.part === "7"
+---
+
+<AppLayout title={`TOEIC Part ${session.part}`} user={user}>
+  <main class="mx-auto max-w-5xl px-6 py-10">
+
+    <!-- ================================================================ -->
+    <!-- HEADER -->
+    <!-- ================================================================ -->
+
+    <div class="mb-8 flex items-center justify-between gap-4">
+      <div>
+        <a
+          href="/dashboard"
+          class="text-sm font-medium text-gray-500 hover:text-gray-900"
+        >
+          ← Dashboard
+        </a>
+
+        <div class="mt-3 flex items-center gap-3">
+          <span
+            class="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-gray-600"
+          >
+            {session.exam}
+          </span>
+
+          <span class="text-sm text-gray-500">
+            Part {session.part}
+          </span>
+        </div>
+
+        <h1 class="mt-2 text-2xl font-bold tracking-tight">
+          {isPart7 ? "Reading Comprehension" : "Practice"}
+        </h1>
+      </div>
+
+      <div class="text-right">
+        <p class="text-sm text-gray-500">
+          {isPart7 ? "Questions" : "Question"}
+        </p>
+
+        <p class="text-xl font-bold">
+          <span id="question-number">1</span>
+          <span class="text-gray-400">/ {questions.length}</span>
+        </p>
+      </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- PROGRESS -->
+    <!-- ================================================================ -->
+
+    <div class="mb-8 h-2 overflow-hidden rounded-full bg-gray-100">
+      <div
+        id="progress-bar"
+        class="h-full rounded-full bg-gray-900 transition-all duration-300"
+        style="width: 0%"
+      >
+      </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- PART 7 -->
+    <!-- ================================================================ -->
+
+    {
+      isPart7 ? (
+        <div id="part7-container" class="space-y-8">
+          <!-- Rendered by JavaScript -->
+        </div>
+      ) : (
+        <>
+          <!-- ========================================================== -->
+          <!-- PASSAGE FOR PART 6 -->
+          <!-- ========================================================== -->
+
+          {
+            session.part === "6" && (
+              <section
+                id="passage-section"
+                class="mb-6 overflow-hidden rounded-2xl border bg-white"
+              >
+                <div class="border-b bg-gray-50 px-6 py-4 sm:px-8">
+                  <div class="flex items-center justify-between gap-4">
+                    <div>
+                      <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                        Reading Passage
+                      </p>
+
+                      <h2
+                        id="passage-title"
+                        class="mt-1 text-lg font-bold text-gray-900"
+                      >
+                      </h2>
+                    </div>
+
+                    <span class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-gray-500 ring-1 ring-gray-200">
+                      Part {session.part}
+                    </span>
+                  </div>
+                </div>
+
+                <div
+                  id="passage-text"
+                  class="whitespace-pre-line px-6 py-7 text-base leading-8 text-gray-800 sm:px-8 sm:text-lg"
+                >
+                </div>
+              </section>
+            )
+          }
+
+          <!-- ========================================================== -->
+          <!-- PART 5 / PART 6 QUESTION -->
+          <!-- ========================================================== -->
+
+          <section class="rounded-2xl border bg-white p-6 sm:p-8">
+
+            <div>
+              <p
+                id="question-text"
+                class="text-lg font-medium leading-8 text-gray-900 sm:text-xl"
+              >
+                {questions[0].questionText}
+              </p>
+            </div>
+
+            <div class="mt-4">
+              <span
+                id="difficulty"
+                class="text-xs font-medium uppercase tracking-wide text-gray-400"
+              >
+                {questions[0].difficulty ?? ""}
+              </span>
+            </div>
+
+            <div id="options" class="mt-8 space-y-3">
+              {
+                questions[0].options.map((option) => (
+                  <button
+                    type="button"
+                    data-option-id={option.id}
+                    class="option-button flex w-full items-center gap-4 rounded-xl border p-4 text-left transition hover:border-gray-400 hover:bg-gray-50"
+                  >
+                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-sm font-semibold">
+                      {option.label}
+                    </span>
+
+                    <span class="text-sm leading-6 text-gray-800">
+                      {option.text}
+                    </span>
+                  </button>
+                ))
+              }
+            </div>
+
+            <div id="feedback" class="mt-6 hidden rounded-xl border p-5">
+              <p id="feedback-title" class="font-semibold"></p>
+
+              <p
+                id="feedback-explanation"
+                class="mt-2 text-sm leading-6 text-gray-600"
+              >
+              </p>
+            </div>
+
+            <!-- Useful vocabulary -->
+
+            <section id="vocabulary-section" class="mt-8 hidden">
+              <div class="border-t pt-6">
+                <div>
+                  <h2 class="text-base font-semibold text-gray-900">
+                    Useful Vocabulary
+                  </h2>
+
+                  <p class="mt-1 text-sm text-gray-500">
+                    Useful words and phrases from this question.
+                  </p>
+                </div>
+
+                <div id="vocabulary-list" class="mt-4 space-y-3"></div>
+              </div>
+            </section>
+
+            <div class="mt-8 flex justify-end">
+              <button
+                id="next-button"
+                type="button"
+                disabled
+                class="rounded-lg bg-gray-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Next →
+              </button>
+            </div>
+          </section>
+        </>
+      )
+    }
+  </main>
+
+  <script define:vars={{ questions, passages, sessionId: id, isPart7 }}>
+    const questionData = questions
+    const passageData = passages
+    const part7 = isPart7
+
+    let currentIndex = 0
+    let answered = false
+
+    /*
+     * ========================================================================
+     * COMMON ELEMENTS
+     * ========================================================================
+     */
+
+    const questionNumber = document.querySelector("#question-number")
+    const progressBar = document.querySelector("#progress-bar")
+
+    /*
+     * ========================================================================
+     * PART 7 STATE
+     * ========================================================================
+     */
+
+    let currentPassageIndex = 0
+
+    const passageQuestions = new Map()
+
+    for (const passage of passageData) {
+      const ids = passage.questions.map((question) => question.id)
+
+      const sessionQuestions = questionData.filter((question) =>
+        ids.includes(question.id),
+      )
+
+      if (sessionQuestions.length > 0) {
+        passageQuestions.set(passage.id, sessionQuestions)
+      }
+    }
+
+    const selectedPassages = Array.from(passageQuestions.entries())
+
+    /*
+     * ========================================================================
+     * PART 7
+     * ========================================================================
+     */
+
+    function renderPart7() {
+      const container = document.querySelector("#part7-container")
+
+      if (!container) {
+        return
+      }
+
+      const entry = selectedPassages[currentPassageIndex]
+
+      if (!entry) {
+        return
+      }
+
+      const [passageId, passageQuestionsList] = entry
+
+      const passage = passageData.find(
+        (item) => item.id === passageId,
+      )
+
+      if (!passage) {
+        return
+      }
+
+      container.innerHTML = ""
+
+      /*
+       * Passage
+       */
+
+      const passageCard = document.createElement("section")
+
+      passageCard.className =
+        "overflow-hidden rounded-2xl border bg-white shadow-sm"
+
+      const passageHeader = document.createElement("div")
+
+      passageHeader.className =
+        "border-b bg-gray-50 px-6 py-5 sm:px-8"
+
+      const passageLabel = document.createElement("p")
+
+      passageLabel.className =
+        "text-xs font-semibold uppercase tracking-wide text-gray-400"
+
+      passageLabel.textContent =
+        `Reading Passage ${currentPassageIndex + 1} of ${selectedPassages.length}`
+
+      const passageTitle = document.createElement("h2")
+
+      passageTitle.className =
+        "mt-1 text-xl font-bold text-gray-900"
+
+      passageTitle.textContent =
+        passage.title ?? "Reading Passage"
+
+      passageHeader.appendChild(passageLabel)
+      passageHeader.appendChild(passageTitle)
+
+      const passageBody = document.createElement("div")
+
+      passageBody.className =
+        "whitespace-pre-line px-6 py-8 text-base leading-8 text-gray-800 sm:px-8 sm:text-lg"
+
+      passageBody.textContent = passage.passageText
+
+      passageCard.appendChild(passageHeader)
+      passageCard.appendChild(passageBody)
+
+      container.appendChild(passageCard)
+
+      /*
+       * Questions
+       */
+
+      const questionsHeading = document.createElement("div")
+
+      questionsHeading.className = "pt-2"
+
+      const questionsTitle = document.createElement("h2")
+
+      questionsTitle.className =
+        "text-xl font-bold text-gray-900"
+
+      questionsTitle.textContent = "Questions"
+
+      const questionsDescription = document.createElement("p")
+
+      questionsDescription.className =
+        "mt-1 text-sm text-gray-500"
+
+      questionsDescription.textContent =
+        "Choose the best answer for each question."
+
+      questionsHeading.appendChild(questionsTitle)
+      questionsHeading.appendChild(questionsDescription)
+
+      container.appendChild(questionsHeading)
+
+      /*
+       * Individual questions
+       */
+
+      passageQuestionsList.forEach((question, index) => {
+        const card = document.createElement("section")
+
+        card.dataset.questionId = question.id
+
+        card.className =
+          "rounded-2xl border bg-white p-6 sm:p-8"
+
+        /*
+         * Question number
+         */
+
+        const number = document.createElement("p")
+
+        number.className =
+          "text-sm font-semibold text-gray-400"
+
+        number.textContent =
+          `Question ${question.questionNumber ?? index + 1}`
+
+        card.appendChild(number)
+
+        /*
+         * Question text
+         */
+
+        const text = document.createElement("p")
+
+        text.className =
+          "mt-3 text-lg font-medium leading-8 text-gray-900"
+
+        text.textContent = question.questionText
+
+        card.appendChild(text)
+
+        /*
+         * Difficulty
+         */
+
+        if (question.difficulty) {
+          const difficulty = document.createElement("p")
+
+          difficulty.className =
+            "mt-3 text-xs font-medium uppercase tracking-wide text-gray-400"
+
+          difficulty.textContent = question.difficulty
+
+          card.appendChild(difficulty)
+        }
+
+        /*
+         * Options
+         */
+
+        const options = document.createElement("div")
+
+        options.className = "mt-6 space-y-3"
+
+        question.options.forEach((option) => {
+          const button = document.createElement("button")
+
+          button.type = "button"
+          button.dataset.optionId = option.id
+
+          button.className =
+            "part7-option flex w-full items-center gap-4 rounded-xl border p-4 text-left transition hover:border-gray-400 hover:bg-gray-50"
+
+          const label = document.createElement("span")
+
+          label.className =
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-sm font-semibold"
+
+          label.textContent = option.label
+
+          const optionText = document.createElement("span")
+
+          optionText.className =
+            "text-sm leading-6 text-gray-800"
+
+          optionText.textContent = option.text
+
+          button.appendChild(label)
+          button.appendChild(optionText)
+
+          button.addEventListener("click", () => {
+            submitPart7Answer(
+              question,
+              option.id,
+              button,
+              options,
+              card,
+            )
+          })
+
+          options.appendChild(button)
+        })
+
+        card.appendChild(options)
+
+        /*
+         * Feedback
+         */
+
+        const feedback = document.createElement("div")
+
+        feedback.className =
+          "part7-feedback mt-6 hidden rounded-xl border p-5"
+
+        const feedbackTitle = document.createElement("p")
+
+        feedbackTitle.className = "font-semibold"
+
+        const feedbackExplanation = document.createElement("p")
+
+        feedbackExplanation.className =
+          "mt-2 text-sm leading-6 text-gray-600"
+
+        feedback.appendChild(feedbackTitle)
+        feedback.appendChild(feedbackExplanation)
+
+        card.appendChild(feedback)
+
+        /*
+         * Vocabulary
+         */
+
+        if (question.vocabulary?.length > 0) {
+          const vocabulary = document.createElement("div")
+
+          vocabulary.className =
+            "part7-vocabulary mt-6 hidden border-t pt-6"
+
+          const heading = document.createElement("h3")
+
+          heading.className =
+            "text-sm font-semibold text-gray-900"
+
+          heading.textContent = "Useful Vocabulary"
+
+          vocabulary.appendChild(heading)
+
+          const list = document.createElement("div")
+
+          list.className = "mt-3 space-y-3"
+
+          question.vocabulary.forEach((item) => {
+            const vocabularyCard = document.createElement("div")
+
+            vocabularyCard.className =
+              "flex items-center justify-between gap-4 rounded-xl border bg-gray-50 p-4"
+
+            const content = document.createElement("div")
+
+            const word = document.createElement("p")
+
+            word.className =
+              "font-semibold text-gray-900"
+
+            word.textContent = item.word
+
+            const meaning = document.createElement("p")
+
+            meaning.className =
+              "mt-1 text-sm text-gray-600"
+
+            meaning.textContent = item.meaning
+
+            const example = document.createElement("p")
+
+            example.className =
+              "mt-2 text-xs italic text-gray-500"
+
+            example.textContent = item.exampleSentence
+
+            content.appendChild(word)
+            content.appendChild(meaning)
+            content.appendChild(example)
+
+            const saveButton = document.createElement("button")
+
+            saveButton.type = "button"
+
+            if (item.saved) {
+              saveButton.textContent = "✓ 保存済み"
+              saveButton.disabled = true
+              saveButton.className =
+                "shrink-0 cursor-not-allowed rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-500"
+            } else {
+              saveButton.textContent = "マイ単語に保存"
+
+              saveButton.className =
+                "shrink-0 rounded-lg border bg-white px-3 py-2 text-sm font-semibold text-gray-700 transition hover:border-gray-400 hover:bg-gray-100"
+
+              saveButton.addEventListener("click", async () => {
+                saveButton.disabled = true
+                saveButton.textContent = "保存中..."
+
+                try {
+                  const response = await fetch(
+                    "/api/vocabulary",
+                    {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                      },
+                      body: JSON.stringify({
+                        word: item.word,
+                        meaning: item.meaning || null,
+                        exampleSentence:
+                          item.exampleSentence || null,
+                        notes: null,
+                        tags: null,
+                      }),
+                    },
+                  )
+
+                  const data =
+                    await response.json().catch(() => null)
+
+                  if (response.status === 409) {
+                    item.saved = true
+                  } else if (!response.ok) {
+                    throw new Error(
+                      data?.error ??
+                        "Failed to save vocabulary.",
+                    )
+                  } else {
+                    item.saved = true
+                  }
+
+                  saveButton.textContent = "✓ 保存済み"
+
+                  saveButton.className =
+                    "shrink-0 cursor-not-allowed rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-500"
+                } catch (error) {
+                  console.error(
+                    "Failed to save vocabulary:",
+                    error,
+                  )
+
+                  saveButton.disabled = false
+                  saveButton.textContent = "マイ単語に保存"
+                }
+              })
+            }
+
+            vocabularyCard.appendChild(content)
+            vocabularyCard.appendChild(saveButton)
+
+            list.appendChild(vocabularyCard)
+          })
+
+          vocabulary.appendChild(list)
+          card.appendChild(vocabulary)
+        }
+
+        container.appendChild(card)
+      })
+
+      /*
+       * Navigation
+       */
+
+      const navigation = document.createElement("div")
+
+      navigation.className =
+        "flex justify-end pt-2 pb-8"
+
+      const nextButton = document.createElement("button")
+
+      nextButton.type = "button"
+
+      nextButton.id = "part7-next-button"
+
+      nextButton.disabled = true
+
+      nextButton.className =
+        "rounded-lg bg-gray-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
+
+      nextButton.textContent =
+        currentPassageIndex === selectedPassages.length - 1
+          ? "Finish →"
+          : "Next Passage →"
+
+      nextButton.addEventListener("click", () => {
+        completeOrNextPart7(nextButton)
+      })
+
+      navigation.appendChild(nextButton)
+
+      container.appendChild(navigation)
+
+      updatePart7Progress()
+    }
+
+    /*
+     * ========================================================================
+     * PART 7 ANSWER
+     * ========================================================================
+     */
+
+    async function submitPart7Answer(
+      question,
+      optionId,
+      selectedButton,
+      optionsContainer,
+      card,
+    ) {
+      if (card.dataset.answered === "true") {
+        return
+      }
+
+      card.dataset.answered = "true"
+
+      const buttons =
+        optionsContainer.querySelectorAll(
+          ".part7-option",
+        )
+
+      buttons.forEach((button) => {
+        button.disabled = true
+      })
+
+      try {
+        const response = await fetch(
+          `/api/practice/sessions/${sessionId}/answers`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              questionId: question.id,
+              optionId,
+            }),
+          },
+        )
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(
+            data?.error ?? "Failed to submit answer.",
+          )
+        }
+
+        selectedButton.classList.remove(
+          "hover:border-gray-400",
+          "hover:bg-gray-50",
+        )
+
+        if (data.correct) {
+          selectedButton.classList.add(
+            "border-green-500",
+            "bg-green-50",
+          )
+        } else {
+          selectedButton.classList.add(
+            "border-red-500",
+            "bg-red-50",
+          )
+        }
+
+        if (!data.correct && data.correctOptionId) {
+          const correctButton =
+            optionsContainer.querySelector(
+              `[data-option-id="${data.correctOptionId}"]`,
+            )
+
+          if (correctButton) {
+            correctButton.classList.remove(
+              "hover:border-gray-400",
+              "hover:bg-gray-50",
+            )
+
+            correctButton.classList.add(
+              "border-green-500",
+              "bg-green-50",
+            )
+          }
+        }
+
+        const feedback =
+          card.querySelector(".part7-feedback")
+
+        const feedbackTitle =
+          feedback?.querySelector("p:first-child")
+
+        const feedbackExplanation =
+          feedback?.querySelector("p:last-child")
+
+        if (feedback) {
+          feedback.classList.remove("hidden")
+
+          if (data.correct) {
+            feedback.classList.add(
+              "border-green-200",
+              "bg-green-50",
+            )
+          } else {
+            feedback.classList.add(
+              "border-red-200",
+              "bg-red-50",
+            )
+          }
+        }
+
+        if (feedbackTitle) {
+          feedbackTitle.textContent =
+            data.correct ? "Correct!" : "Incorrect"
+        }
+
+        if (feedbackExplanation) {
+          feedbackExplanation.textContent =
+            data.explanation ?? ""
+        }
+
+        const vocabulary =
+          card.querySelector(".part7-vocabulary")
+
+        if (vocabulary) {
+          vocabulary.classList.remove("hidden")
+        }
+
+        updatePart7NextButton()
+      } catch (error) {
+        console.error(
+          "Failed to submit Part 7 answer:",
+          error,
+        )
+
+        card.dataset.answered = "false"
+
+        buttons.forEach((button) => {
+          button.disabled = false
+        })
+
+        const feedback =
+          card.querySelector(".part7-feedback")
+
+        const feedbackTitle =
+          feedback?.querySelector("p:first-child")
+
+        const feedbackExplanation =
+          feedback?.querySelector("p:last-child")
+
+        if (feedback) {
+          feedback.classList.remove("hidden")
+          feedback.classList.add(
+            "border-red-200",
+            "bg-red-50",
+          )
+        }
+
+        if (feedbackTitle) {
+          feedbackTitle.textContent =
+            "Something went wrong"
+        }
+
+        if (feedbackExplanation) {
+          feedbackExplanation.textContent =
+            error instanceof Error
+              ? error.message
+              : "Failed to submit answer."
+        }
+      }
+    }
+
+    /*
+     * ========================================================================
+     * PART 7 PROGRESS
+     * ========================================================================
+     */
+
+    function updatePart7Progress() {
+      const entry = selectedPassages[currentPassageIndex]
+
+      if (!entry) {
+        return
+      }
+
+      const [, passageQuestionsList] = entry
+
+      const answeredCount =
+        passageQuestionsList.filter((question) => {
+          const card = document.querySelector(
+            `[data-question-id="${question.id}"]`,
+          )
+
+          return card?.dataset.answered === "true"
+        }).length
+
+      if (questionNumber) {
+        const firstQuestion =
+          passageQuestionsList[0]
+
+        const lastQuestion =
+          passageQuestionsList[
+            passageQuestionsList.length - 1
+          ]
+
+        questionNumber.textContent =
+          `${firstQuestion.questionNumber ?? 1}-${lastQuestion.questionNumber ?? passageQuestionsList.length}`
+      }
+
+      if (progressBar) {
+        const overallAnswered =
+          questionData.filter((question) => {
+            return questionData
+              .slice(0, questionData.indexOf(question))
+              .some(() => false)
+          }).length
+
+        const previousQuestions =
+          selectedPassages
+            .slice(0, currentPassageIndex)
+            .reduce(
+              (total, [, questions]) =>
+                total + questions.length,
+              0,
+            )
+
+        const progress =
+          ((previousQuestions + answeredCount) /
+            questionData.length) *
+          100
+
+        progressBar.style.width =
+          `${Math.min(progress, 100)}%`
+      }
+    }
+
+    /*
+     * ========================================================================
+     * PART 7 NEXT BUTTON
+     * ========================================================================
+     */
+
+    function updatePart7NextButton() {
+      const entry = selectedPassages[currentPassageIndex]
+
+      if (!entry) {
+        return
+      }
+
+      const [, passageQuestionsList] = entry
+
+      const allAnswered =
+        passageQuestionsList.every((question) => {
+          const card = document.querySelector(
+            `[data-question-id="${question.id}"]`,
+          )
+
+          return card?.dataset.answered === "true"
+        })
+
+      const nextButton = document.querySelector(
+        "#part7-next-button",
+      )
+
+      if (nextButton) {
+        nextButton.disabled = !allAnswered
+      }
+
+      updatePart7Progress()
+    }
+
+    /*
+     * ========================================================================
+     * PART 7 NAVIGATION / COMPLETE
+     * ========================================================================
+     */
+
+    async function completeOrNextPart7(button) {
+      if (button.disabled) {
+        return
+      }
+
+      if (
+        currentPassageIndex <
+        selectedPassages.length - 1
+      ) {
+        currentPassageIndex += 1
+
+        renderPart7()
+
+        window.scrollTo({
+          top: 0,
+          behavior: "smooth",
+        })
+
+        return
+      }
+
+      button.disabled = true
+      button.textContent = "Finishing..."
+
+      try {
+        const response = await fetch(
+          `/api/practice/sessions/${sessionId}/complete`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          },
+        )
+
+        const data =
+          await response.json().catch(() => null)
+
+        if (!response.ok) {
+          throw new Error(
+            data?.error ??
+              "Failed to complete practice session.",
+          )
+        }
+
+        window.location.href =
+          `/practice/${sessionId}/result`
+      } catch (error) {
+        console.error(
+          "Failed to complete practice session:",
+          error,
+        )
+
+        button.disabled = false
+        button.textContent = "Finish →"
+
+        alert(
+          error instanceof Error
+            ? error.message
+            : "Failed to complete practice session.",
+        )
+      }
+    }
+
+    /*
+     * ========================================================================
+     * PART 5 / PART 6
+     * ========================================================================
+     */
+
+    if (!part7) {
+      const questionText =
+        document.querySelector("#question-text")
+
+      const difficulty =
+        document.querySelector("#difficulty")
+
+      const optionsContainer =
+        document.querySelector("#options")
+
+      const feedback =
+        document.querySelector("#feedback")
+
+      const feedbackTitle =
+        document.querySelector("#feedback-title")
+
+      const feedbackExplanation =
+        document.querySelector("#feedback-explanation")
+
+      const nextButton =
+        document.querySelector("#next-button")
+
+      const vocabularySection =
+        document.querySelector("#vocabulary-section")
+
+      const vocabularyList =
+        document.querySelector("#vocabulary-list")
+
+      const passageSection =
+        document.querySelector("#passage-section")
+
+      const passageTitle =
+        document.querySelector("#passage-title")
+
+      const passageText =
+        document.querySelector("#passage-text")
+
+      function getPassageForQuestion(questionId) {
+        if (passageData.length === 0) {
+          return null
+        }
+
+        return (
+          passageData.find((passage) =>
+            passage.questions.some(
+              (question) =>
+                question.id === questionId,
+            ),
+          ) ?? null
+        )
+      }
+
+      function renderPassage() {
+        const question =
+          questionData[currentIndex]
+
+        if (!question || !passageSection) {
+          return
+        }
+
+        const passage =
+          getPassageForQuestion(question.id)
+
+        if (!passage) {
+          passageSection.classList.add("hidden")
+          return
+        }
+
+        passageSection.classList.remove("hidden")
+
+        if (passageTitle) {
+          passageTitle.textContent =
+            passage.title ?? "Reading Passage"
+        }
+
+        if (passageText) {
+          passageText.textContent =
+            passage.passageText
+        }
+      }
+
+      function renderVocabulary() {
+        const question =
+          questionData[currentIndex]
+
+        if (
+          !question ||
+          !vocabularySection ||
+          !vocabularyList
+        ) {
+          return
+        }
+
+        const vocabulary =
+          question.vocabulary ?? []
+
+        vocabularyList.innerHTML = ""
+
+        if (vocabulary.length === 0) {
+          vocabularySection.classList.add("hidden")
+          return
+        }
+
+        vocabulary.forEach((item) => {
+          const card =
+            document.createElement("div")
+
+          card.className =
+            "flex items-center justify-between gap-4 rounded-xl border bg-gray-50 p-4"
+
+          const content =
+            document.createElement("div")
+
+          content.className = "min-w-0"
+
+          const word =
+            document.createElement("p")
+
+          word.className =
+            "font-semibold text-gray-900"
+
+          word.textContent = item.word
+
+          const meaning =
+            document.createElement("p")
+
+          meaning.className =
+            "mt-1 text-sm text-gray-600"
+
+          meaning.textContent =
+            item.meaning
+
+          const example =
+            document.createElement("p")
+
+          example.className =
+            "mt-2 text-xs italic text-gray-500"
+
+          example.textContent =
+            item.exampleSentence
+
+          content.appendChild(word)
+          content.appendChild(meaning)
+          content.appendChild(example)
+
+          const saveButton =
+            document.createElement("button")
+
+          saveButton.type = "button"
+
+          if (item.saved) {
+            saveButton.textContent =
+              "✓ 保存済み"
+
+            saveButton.disabled = true
+
+            saveButton.className =
+              "shrink-0 cursor-not-allowed rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-500"
+          } else {
+            saveButton.textContent =
+              "マイ単語に保存"
+
+            saveButton.className =
+              "shrink-0 rounded-lg border bg-white px-3 py-2 text-sm font-semibold text-gray-700 transition hover:border-gray-400 hover:bg-gray-100"
+
+            saveButton.addEventListener(
+              "click",
+              async () => {
+                saveButton.disabled = true
+                saveButton.textContent =
+                  "保存中..."
+
+                try {
+                  const response =
+                    await fetch(
+                      "/api/vocabulary",
+                      {
+                        method: "POST",
+                        headers: {
+                          "Content-Type":
+                            "application/json",
+                        },
+                        body: JSON.stringify({
+                          word: item.word,
+                          meaning:
+                            item.meaning || null,
+                          exampleSentence:
+                            item.exampleSentence ||
+                            null,
+                          notes: null,
+                          tags: null,
+                        }),
+                      },
+                    )
+
+                  const data =
+                    await response
+                      .json()
+                      .catch(() => null)
+
+                  if (response.status === 409) {
+                    item.saved = true
+                  } else if (!response.ok) {
+                    throw new Error(
+                      data?.error ??
+                        "Failed to save vocabulary.",
+                    )
+                  } else {
+                    item.saved = true
+                  }
+
+                  saveButton.textContent =
+                    "✓ 保存済み"
+
+                  saveButton.className =
+                    "shrink-0 cursor-not-allowed rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-500"
+                } catch (error) {
+                  console.error(
+                    "Failed to save vocabulary:",
+                    error,
+                  )
+
+                  saveButton.disabled = false
+                  saveButton.textContent =
+                    "マイ単語に保存"
+                }
+              },
+            )
+          }
+
+          card.appendChild(content)
+          card.appendChild(saveButton)
+
+          vocabularyList.appendChild(card)
+        })
+
+        vocabularySection.classList.remove("hidden")
+      }
+
+      function renderQuestion() {
+        const question =
+          questionData[currentIndex]
+
+        if (!question) {
+          return
+        }
+
+        answered = false
+
+        if (questionNumber) {
+          questionNumber.textContent =
+            String(currentIndex + 1)
+        }
+
+        if (progressBar) {
+          const progress =
+            ((currentIndex + 1) /
+              questionData.length) *
+            100
+
+          progressBar.style.width =
+            `${progress}%`
+        }
+
+        renderPassage()
+
+        if (questionText) {
+          questionText.textContent =
+            question.questionText
+        }
+
+        if (difficulty) {
+          difficulty.textContent =
+            question.difficulty ?? ""
+        }
+
+        if (feedback) {
+          feedback.classList.add("hidden")
+
+          feedback.classList.remove(
+            "border-green-200",
+            "bg-green-50",
+            "border-red-200",
+            "bg-red-50",
+          )
+        }
+
+        if (feedbackTitle) {
+          feedbackTitle.textContent = ""
+        }
+
+        if (feedbackExplanation) {
+          feedbackExplanation.textContent = ""
+        }
+
+        if (vocabularySection) {
+          vocabularySection.classList.add("hidden")
+        }
+
+        if (nextButton) {
+          nextButton.disabled = true
+
+          nextButton.textContent =
+            currentIndex ===
+            questionData.length - 1
+              ? "Finish →"
+              : "Next →"
+        }
+
+        if (!optionsContainer) {
+          return
+        }
+
+        optionsContainer.innerHTML = ""
+
+        question.options.forEach((option) => {
+          const button =
+            document.createElement("button")
+
+          button.type = "button"
+          button.dataset.optionId =
+            option.id
+
+          button.className =
+            "option-button flex w-full items-center gap-4 rounded-xl border p-4 text-left transition hover:border-gray-400 hover:bg-gray-50"
+
+          const label =
+            document.createElement("span")
+
+          label.className =
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-sm font-semibold"
+
+          label.textContent =
+            option.label
+
+          const text =
+            document.createElement("span")
+
+          text.className =
+            "text-sm leading-6 text-gray-800"
+
+          text.textContent =
+            option.text
+
+          button.appendChild(label)
+          button.appendChild(text)
+
+          button.addEventListener(
+            "click",
+            () => {
+              submitAnswer(option.id)
+            },
+          )
+
+          optionsContainer.appendChild(button)
+        })
+      }
+
+      async function submitAnswer(optionId) {
+        if (answered) {
+          return
+        }
+
+        const question =
+          questionData[currentIndex]
+
+        if (!question) {
+          return
+        }
+
+        answered = true
+
+        const buttons =
+          optionsContainer?.querySelectorAll(
+            ".option-button",
+          )
+
+        buttons?.forEach((button) => {
+          button.disabled = true
+        })
+
+        try {
+          const response =
+            await fetch(
+              `/api/practice/sessions/${sessionId}/answers`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+                body: JSON.stringify({
+                  questionId: question.id,
+                  optionId,
+                }),
+              },
+            )
+
+          const data =
+            await response.json()
+
+          if (!response.ok) {
+            throw new Error(
+              data?.error ??
+                "Failed to submit answer.",
+            )
+          }
+
+          const selectedButton =
+            optionsContainer?.querySelector(
+              `[data-option-id="${optionId}"]`,
+            )
+
+          if (selectedButton) {
+            selectedButton.classList.remove(
+              "hover:border-gray-400",
+              "hover:bg-gray-50",
+            )
+
+            if (data.correct) {
+              selectedButton.classList.add(
+                "border-green-500",
+                "bg-green-50",
+              )
+            } else {
+              selectedButton.classList.add(
+                "border-red-500",
+                "bg-red-50",
+              )
+            }
+          }
+
+          if (
+            !data.correct &&
+            data.correctOptionId
+          ) {
+            const correctButton =
+              optionsContainer?.querySelector(
+                `[data-option-id="${data.correctOptionId}"]`,
+              )
+
+            if (correctButton) {
+              correctButton.classList.remove(
+                "hover:border-gray-400",
+                "hover:bg-gray-50",
+              )
+
+              correctButton.classList.add(
+                "border-green-500",
+                "bg-green-50",
+              )
+            }
+          }
+
+          if (feedback) {
+            feedback.classList.remove(
+              "hidden",
+            )
+
+            if (data.correct) {
+              feedback.classList.add(
+                "border-green-200",
+                "bg-green-50",
+              )
+            } else {
+              feedback.classList.add(
+                "border-red-200",
+                "bg-red-50",
+              )
+            }
+          }
+
+          if (feedbackTitle) {
+            feedbackTitle.textContent =
+              data.correct
+                ? "Correct!"
+                : "Incorrect"
+          }
+
+          if (feedbackExplanation) {
+            feedbackExplanation.textContent =
+              data.explanation ?? ""
+          }
+
+          renderVocabulary()
+
+          if (nextButton) {
+            nextButton.disabled = false
+          }
+        } catch (error) {
+          answered = false
+
+          buttons?.forEach((button) => {
+            button.disabled = false
+          })
+
+          if (feedback) {
+            feedback.classList.remove(
+              "hidden",
+            )
+
+            feedback.classList.remove(
+              "border-green-200",
+              "bg-green-50",
+            )
+
+            feedback.classList.add(
+              "border-red-200",
+              "bg-red-50",
+            )
+          }
+
+          if (feedbackTitle) {
+            feedbackTitle.textContent =
+              "Something went wrong"
+          }
+
+          if (feedbackExplanation) {
+            feedbackExplanation.textContent =
+              error instanceof Error
+                ? error.message
+                : "Failed to submit answer."
+          }
+        }
+      }
+
+      nextButton?.addEventListener(
+        "click",
+        async () => {
+          if (!answered) {
+            return
+          }
+
+          if (
+            currentIndex >=
+            questionData.length - 1
+          ) {
+            nextButton.disabled = true
+            nextButton.textContent =
+              "Finishing..."
+
+            try {
+              const response =
+                await fetch(
+                  `/api/practice/sessions/${sessionId}/complete`,
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type":
+                        "application/json",
+                    },
+                  },
+                )
+
+              const data =
+                await response
+                  .json()
+                  .catch(() => null)
+
+              if (!response.ok) {
+                throw new Error(
+                  data?.error ??
+                    "Failed to complete practice session.",
+                )
+              }
+
+              window.location.href =
+                `/practice/${sessionId}/result`
+            } catch (error) {
+              console.error(
+                "Failed to complete practice session:",
+                error,
+              )
+
+              nextButton.disabled = false
+              nextButton.textContent =
+                "Finish →"
+
+              if (feedback) {
+                feedback.classList.remove(
+                  "hidden",
+                )
+
+                feedback.classList.add(
+                  "border-red-200",
+                  "bg-red-50",
+                )
+              }
+
+              if (feedbackTitle) {
+                feedbackTitle.textContent =
+                  "Something went wrong"
+              }
+
+              if (feedbackExplanation) {
+                feedbackExplanation.textContent =
+                  error instanceof Error
+                    ? error.message
+                    : "Failed to complete practice session."
+              }
+            }
+
+            return
+          }
+
+          currentIndex += 1
+
+          renderQuestion()
+
+          window.scrollTo({
+            top: 0,
+            behavior: "smooth",
+          })
+        },
+      )
+
+      renderQuestion()
+    } else {
+      /*
+       * ======================================================================
+       * INITIAL PART 7 RENDER
+       * ======================================================================
+       */
+
+      renderPart7()
+    }
+  </script>
+</AppLayout>

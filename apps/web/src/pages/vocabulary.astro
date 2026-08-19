@@ -1,0 +1,331 @@
+---
+import AppLayout from "../layouts/AppLayout.astro"
+import { requireAuth } from "../lib/require-auth"
+import { apiFetch } from "../lib/api"
+
+const user = await requireAuth(Astro)
+
+if (user instanceof Response) {
+  return user
+}
+
+type Vocabulary = {
+  id: string
+  word: string
+  meaning: string | null
+  exampleSentence: string | null
+  notes: string | null
+  tags: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+type Pagination = {
+  page: number
+  limit: number
+  total: number
+  totalPages: number
+}
+
+const search = Astro.url.searchParams.get("search")?.trim() ?? ""
+
+const pageParam = Number(Astro.url.searchParams.get("page") ?? "1")
+
+const page = Number.isInteger(pageParam) && pageParam > 0 ? pageParam : 1
+
+const limit = 20
+
+let vocabulary: Vocabulary[] = []
+
+let pagination: Pagination = {
+  page,
+  limit,
+  total: 0,
+  totalPages: 0,
+}
+
+try {
+  const params = new URLSearchParams()
+
+  params.set("page", String(page))
+  params.set("limit", String(limit))
+
+  if (search) {
+    params.set("search", search)
+  }
+
+  const data = await apiFetch<{
+    vocabulary: Vocabulary[]
+    pagination: Pagination
+  }>(`/api/v1/vocabulary?${params.toString()}`, Astro)
+
+  vocabulary = data.vocabulary
+  pagination = data.pagination
+} catch {
+  vocabulary = []
+}
+
+const makePageUrl = (pageNumber: number) => {
+  const params = new URLSearchParams()
+
+  params.set("page", String(pageNumber))
+
+  if (search) {
+    params.set("search", search)
+  }
+
+  return `/vocabulary?${params.toString()}`
+}
+
+const startItem =
+  pagination.total === 0
+    ? 0
+    : (pagination.page - 1) * pagination.limit + 1
+
+const endItem = Math.min(
+  pagination.page * pagination.limit,
+  pagination.total,
+)
+---
+
+<AppLayout title="マイ単語" user={user}>
+  <main class="mx-auto max-w-5xl px-6 py-10">
+    <!-- Header -->
+
+    <div
+      class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
+    >
+      <div>
+        <p class="text-sm font-medium text-gray-500">マイ単語</p>
+
+        <h1 class="mt-1 text-3xl font-bold tracking-tight">
+          覚えたい単語
+        </h1>
+
+        <p class="mt-2 text-sm text-gray-600">
+          気になった英単語を保存して、いつでも復習できます。
+        </p>
+      </div>
+
+      <a
+        href="/vocabulary/new"
+        class="inline-flex items-center justify-center rounded-lg bg-gray-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-gray-700"
+      >
+        ＋ 単語を追加
+      </a>
+    </div>
+
+    <!-- Search -->
+
+    <form method="GET" action="/vocabulary" class="mt-8">
+      <div class="flex gap-3">
+        <input
+          name="search"
+          type="search"
+          value={search}
+          placeholder="単語・意味・タグを検索..."
+          class="min-w-0 flex-1 rounded-xl border bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-400 focus:ring-2 focus:ring-gray-200"
+        />
+
+        <button
+          type="submit"
+          class="rounded-xl bg-gray-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-gray-700"
+        >
+          検索
+        </button>
+
+        {search && (
+          <a
+            href="/vocabulary"
+            class="rounded-xl border bg-white px-5 py-3 text-sm font-semibold text-gray-600 transition hover:bg-gray-50"
+          >
+            クリア
+          </a>
+        )}
+      </div>
+    </form>
+
+    <!-- Stats -->
+
+    <div class="mt-6 grid gap-4 sm:grid-cols-3">
+      <div class="rounded-xl border bg-white p-5">
+        <p class="text-sm text-gray-500">
+          {search ? "検索結果" : "保存した単語"}
+        </p>
+
+        <p class="mt-1 text-2xl font-bold">
+          {pagination.total}
+        </p>
+      </div>
+
+      <div class="rounded-xl border bg-white p-5">
+        <p class="text-sm text-gray-500">表示中</p>
+
+        <p class="mt-1 text-2xl font-bold">
+          {pagination.total === 0
+            ? 0
+            : `${startItem}–${endItem}`}
+        </p>
+      </div>
+
+      <div class="rounded-xl border bg-white p-5">
+        <p class="text-sm text-gray-500">復習</p>
+
+        <p class="mt-1 text-2xl font-bold">近日公開</p>
+      </div>
+    </div>
+
+    <!-- Vocabulary -->
+
+    <section class="mt-8">
+      {vocabulary.length === 0 ? (
+        <div class="rounded-2xl border bg-white px-6 py-16 text-center">
+          <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 text-2xl">
+            Aa
+          </div>
+
+          <h2 class="mt-5 text-lg font-semibold">
+            {search
+              ? "単語が見つかりません"
+              : "まだ単語がありません"}
+          </h2>
+
+          <p class="mx-auto mt-2 max-w-md text-sm leading-6 text-gray-500">
+            {search
+              ? "別の単語や意味で検索してみてください。"
+              : "覚えたい単語を追加して、あなた専用の単語帳を作りましょう。"}
+          </p>
+
+          {search ? (
+            <a
+              href="/vocabulary"
+              class="mt-6 inline-flex rounded-lg border px-5 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              検索をクリア
+            </a>
+          ) : (
+            <a
+              href="/vocabulary/new"
+              class="mt-6 inline-flex rounded-lg bg-gray-900 px-5 py-3 text-sm font-medium text-white hover:bg-gray-700"
+            >
+              最初の単語を追加
+            </a>
+          )}
+        </div>
+      ) : (
+        <>
+          <div class="space-y-4">
+            {vocabulary.map((item) => (
+              <article class="rounded-2xl border bg-white p-6">
+                <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                  <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-3">
+                      <h2 class="text-2xl font-bold">{item.word}</h2>
+
+                      {item.tags && (
+                        <div class="flex flex-wrap gap-2">
+                          {item.tags
+                            .split(",")
+                            .map((tag) => tag.trim())
+                            .filter(Boolean)
+                            .map((tag) => (
+                              <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
+                                {tag}
+                              </span>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {item.meaning && (
+                      <p class="mt-2 text-base text-gray-700">
+                        {item.meaning}
+                      </p>
+                    )}
+
+                    {item.exampleSentence && (
+                      <div class="mt-5 rounded-lg bg-gray-50 px-4 py-3">
+                        <p class="text-sm leading-6 text-gray-700">
+                          “{item.exampleSentence}”
+                        </p>
+                      </div>
+                    )}
+
+                    {item.notes && (
+                      <p class="mt-4 text-sm text-gray-500">
+                        {item.notes}
+                      </p>
+                    )}
+                  </div>
+
+                  <div class="flex shrink-0 gap-2">
+                    <a
+                      href={`/vocabulary/${item.id}`}
+                      class="rounded-lg border px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                    >
+                      編集
+                    </a>
+
+                    <form
+                      method="POST"
+                      action={`/vocabulary/${item.id}/delete`}
+                    >
+                      <button
+                        type="submit"
+                        class="rounded-lg border px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+                      >
+                        削除
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <!-- Pagination -->
+
+          {pagination.totalPages > 1 && (
+            <div class="mt-8 flex flex-col items-center justify-between gap-4 sm:flex-row">
+              <p class="text-sm text-gray-500">
+                {startItem}–{endItem} / {pagination.total} 単語
+              </p>
+
+              <div class="flex items-center gap-2">
+                {pagination.page > 1 ? (
+                  <a
+                    href={makePageUrl(pagination.page - 1)}
+                    class="rounded-lg border bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    ← 前へ
+                  </a>
+                ) : (
+                  <span class="cursor-not-allowed rounded-lg border bg-gray-50 px-4 py-2 text-sm font-medium text-gray-300">
+                    ← 前へ
+                  </span>
+                )}
+
+                <span class="px-3 text-sm font-medium text-gray-600">
+                  {pagination.page} / {pagination.totalPages}
+                </span>
+
+                {pagination.page < pagination.totalPages ? (
+                  <a
+                    href={makePageUrl(pagination.page + 1)}
+                    class="rounded-lg border bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    次へ →
+                  </a>
+                ) : (
+                  <span class="cursor-not-allowed rounded-lg border bg-gray-50 px-4 py-2 text-sm font-medium text-gray-300">
+                    次へ →
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  </main>
+</AppLayout>

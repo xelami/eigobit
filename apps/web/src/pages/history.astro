@@ -1,0 +1,741 @@
+---
+import AppLayout from "../layouts/AppLayout.astro"
+import { requireAuth } from "../lib/require-auth"
+import { apiFetch } from "../lib/api"
+
+const user = await requireAuth(Astro)
+
+if (user instanceof Response) {
+  return user
+}
+
+type HistoryData = {
+  summary: {
+    sessions: number
+    questionsAnswered: number
+    correctAnswers: number
+    accuracy: number
+    bestScore: number
+  }
+
+  byPart: {
+    part: string
+    questions: number
+    correct: number
+    accuracy: number
+  }[]
+
+  byDifficulty: {
+    difficulty: string
+    questions: number
+    correct: number
+    accuracy: number
+  }[]
+
+  byQuestionType: {
+    questionType: string
+    questions: number
+    correct: number
+    accuracy: number
+  }[]
+
+  performanceOverTime: {
+    date: string
+    questions: number
+    correct: number
+    accuracy: number
+  }[]
+
+  weakAreas: {
+    type: string
+    name: string
+    accuracy: number
+    questions: number
+  }[]
+
+  recentSessions: {
+    id: string
+    exam: string
+    part: string
+    totalQuestions: number
+    correctAnswers: number
+    score: number
+    completedAt: string
+  }[]
+}
+
+let history: HistoryData
+
+try {
+  history = await apiFetch<HistoryData>("/api/v1/practice/history", Astro)
+} catch {
+  return Astro.redirect("/dashboard")
+}
+
+const getScoreClass = (score: number) => {
+  if (score >= 80) return "text-green-600"
+  if (score >= 60) return "text-yellow-600"
+  return "text-red-600"
+}
+
+const getScoreBarClass = (score: number) => {
+  if (score >= 80) return "bg-green-500"
+  if (score >= 60) return "bg-yellow-500"
+  return "bg-red-500"
+}
+
+const formatQuestionType = (type: string) => {
+  if (type === "multiple_choice") return "選択問題"
+
+  if (type === "sentence_insertion") {
+    return "文挿入問題"
+  }
+
+  return type
+}
+
+const formatDifficulty = (difficulty: string) => {
+  if (difficulty === "beginner") return "初級"
+  if (difficulty === "elementary") return "初級"
+  if (difficulty === "intermediate") return "中級"
+  if (difficulty === "upper_intermediate") return "中上級"
+  if (difficulty === "advanced") return "上級"
+
+  return difficulty
+}
+
+const sortedParts = [...history.byPart].sort(
+  (a, b) => Number(a.part) - Number(b.part),
+)
+
+const recentTrend = history.performanceOverTime.slice(-7)
+
+const averageRecentAccuracy =
+  recentTrend.length > 0
+    ? Math.round(
+        recentTrend.reduce((sum, item) => sum + item.accuracy, 0) /
+          recentTrend.length,
+      )
+    : 0
+
+const weakestPart = [...history.byPart].sort(
+  (a, b) => a.accuracy - b.accuracy,
+)[0]
+
+const strongestPart = [...history.byPart].sort(
+  (a, b) => b.accuracy - a.accuracy,
+)[0]
+---
+
+<AppLayout title="学習履歴" user={user}>
+  <main class="mx-auto max-w-6xl px-6 py-10">
+    <!-- ================================================================ -->
+    <!-- HEADER -->
+    <!-- ================================================================ -->
+
+    <div class="mb-10">
+      <a
+        href="/dashboard"
+        class="text-sm font-medium text-gray-500 transition hover:text-gray-900"
+      >
+        ← ダッシュボード
+      </a>
+
+      <div
+        class="mt-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
+      >
+        <div>
+          <h1 class="text-3xl font-bold tracking-tight text-gray-900">
+            学習履歴
+          </h1>
+
+          <p class="mt-2 max-w-2xl text-gray-500">
+            学習成績を確認し、苦手分野を見つけ、これまでの成長を確認しましょう。
+          </p>
+        </div>
+
+        <a
+          href="/practice"
+          class="inline-flex w-fit items-center rounded-xl bg-gray-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-gray-700"
+        >
+          学習を始める
+        </a>
+      </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- SUMMARY -->
+    <!-- ================================================================ -->
+
+    <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="rounded-2xl border bg-white p-6 shadow-sm">
+        <p class="text-sm font-medium text-gray-500">解答した問題数</p>
+
+        <p class="mt-2 text-3xl font-bold text-gray-900">
+          {history.summary.questionsAnswered}
+        </p>
+
+        <p class="mt-1 text-sm text-gray-500">
+          {history.summary.correctAnswers}問正解
+        </p>
+      </div>
+
+      <div class="rounded-2xl border bg-white p-6 shadow-sm">
+        <p class="text-sm font-medium text-gray-500">総合正答率</p>
+
+        <p
+          class:list={[
+            "mt-2 text-3xl font-bold",
+            getScoreClass(history.summary.accuracy),
+          ]}
+        >
+          {history.summary.accuracy}%
+        </p>
+
+        <p class="mt-1 text-sm text-gray-500">完了したすべての学習セッション</p>
+      </div>
+
+      <div class="rounded-2xl border bg-white p-6 shadow-sm">
+        <p class="text-sm font-medium text-gray-500">学習セッション数</p>
+
+        <p class="mt-2 text-3xl font-bold text-gray-900">
+          {history.summary.sessions}
+        </p>
+
+        <p class="mt-1 text-sm text-gray-500">完了したセッション</p>
+      </div>
+
+      <div class="rounded-2xl border bg-white p-6 shadow-sm">
+        <p class="text-sm font-medium text-gray-500">最高スコア</p>
+
+        <p class="mt-2 text-3xl font-bold text-gray-900">
+          {history.summary.bestScore}%
+        </p>
+
+        <p class="mt-1 text-sm text-gray-500">これまでの最高セッションスコア</p>
+      </div>
+    </section>
+
+    <!-- ================================================================ -->
+    <!-- QUICK INSIGHTS -->
+    <!-- ================================================================ -->
+
+    {
+      history.summary.questionsAnswered > 0 && (
+        <section class="mt-6 grid gap-4 sm:grid-cols-3">
+          {strongestPart && (
+            <div class="rounded-2xl border bg-white p-5 shadow-sm">
+              <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                得意なPart
+              </p>
+
+              <div class="mt-2 flex items-end justify-between gap-4">
+                <p class="text-xl font-bold text-gray-900">
+                  Part {strongestPart.part}
+                </p>
+
+                <p
+                  class:list={[
+                    "text-xl font-bold",
+                    getScoreClass(strongestPart.accuracy),
+                  ]}
+                >
+                  {strongestPart.accuracy}%
+                </p>
+              </div>
+
+              <p class="mt-1 text-sm text-gray-500">
+                {strongestPart.questions}問中{strongestPart.correct}問正解
+              </p>
+            </div>
+          )}
+
+          {weakestPart && (
+            <div class="rounded-2xl border bg-white p-5 shadow-sm">
+              <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                要強化
+              </p>
+
+              <div class="mt-2 flex items-end justify-between gap-4">
+                <p class="text-xl font-bold text-gray-900">
+                  Part {weakestPart.part}
+                </p>
+
+                <p
+                  class:list={[
+                    "text-xl font-bold",
+                    getScoreClass(weakestPart.accuracy),
+                  ]}
+                >
+                  {weakestPart.accuracy}%
+                </p>
+              </div>
+
+              <p class="mt-1 text-sm text-gray-500">
+                {weakestPart.questions}問中{weakestPart.correct}問正解
+              </p>
+            </div>
+          )}
+
+          <div class="rounded-2xl border bg-white p-5 shadow-sm">
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">
+              最近の平均
+            </p>
+
+            <div class="mt-2 flex items-end justify-between gap-4">
+              <p class="text-xl font-bold text-gray-900">
+                過去{recentTrend.length || 0}日間
+              </p>
+
+              <p
+                class:list={[
+                  "text-xl font-bold",
+                  getScoreClass(averageRecentAccuracy),
+                ]}
+              >
+                {averageRecentAccuracy}%
+              </p>
+            </div>
+
+            <p class="mt-1 text-sm text-gray-500">日ごとの成績をもとに算出</p>
+          </div>
+        </section>
+      )
+    }
+
+    <!-- ================================================================ -->
+    <!-- PERFORMANCE OVER TIME -->
+    <!-- ================================================================ -->
+
+    {
+      history.performanceOverTime.length > 0 && (
+        <section class="mt-6 rounded-2xl border bg-white p-6 shadow-sm sm:p-8">
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 class="text-xl font-bold text-gray-900">成績の推移</h2>
+
+              <p class="mt-1 text-sm text-gray-500">
+                完了した学習の1日ごとの正答率です。
+              </p>
+            </div>
+
+            {recentTrend.length > 0 && (
+              <div class="text-left sm:text-right">
+                <p class="text-xs font-medium uppercase tracking-wide text-gray-400">
+                  最近の平均
+                </p>
+
+                <p
+                  class:list={[
+                    "mt-1 text-2xl font-bold",
+                    getScoreClass(averageRecentAccuracy),
+                  ]}
+                >
+                  {averageRecentAccuracy}%
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div class="mt-8 overflow-x-auto pb-2">
+            <div class="flex h-64 min-w-[500px] items-end gap-2 sm:gap-3">
+              {history.performanceOverTime.map((day) => {
+                const height = Math.max(day.accuracy, 4)
+
+                return (
+                  <div class="group flex h-full min-w-8 flex-1 flex-col justify-end">
+                    <div class="relative flex flex-1 items-end justify-center">
+                      <div class="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden w-36 -translate-x-1/2 rounded-lg bg-gray-900 px-3 py-2 text-center text-xs text-white shadow-lg group-hover:block">
+                        <p class="font-semibold">正答率 {day.accuracy}%</p>
+
+                        <p class="mt-1 text-gray-300">
+                          {day.questions}問中{day.correct}問正解
+                        </p>
+
+                        <p class="mt-1 text-gray-400">
+                          {new Date(`${day.date}T12:00:00`).toLocaleDateString(
+                            "ja-JP",
+                          )}
+                        </p>
+                      </div>
+
+                      <div
+                        class:list={[
+                          "w-full max-w-12 rounded-t-lg transition-all",
+                          getScoreBarClass(day.accuracy),
+                          "opacity-80 hover:opacity-100",
+                        ]}
+                        style={`height: ${height}%`}
+                      />
+                    </div>
+
+                    <div class="mt-3 text-center">
+                      <p class="text-xs font-semibold text-gray-700">
+                        {day.accuracy}%
+                      </p>
+
+                      <p class="mt-1 text-[10px] text-gray-400">
+                        {new Date(`${day.date}T12:00:00`).toLocaleDateString(
+                          "ja-JP",
+                          {
+                            month: "short",
+                            day: "numeric",
+                          },
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          <p class="mt-4 text-xs text-gray-400">
+            {history.performanceOverTime.length}日間の学習記録
+          </p>
+        </section>
+      )
+    }
+
+    <!-- ================================================================ -->
+    <!-- PERFORMANCE BY PART -->
+    <!-- ================================================================ -->
+
+    <section class="mt-6 rounded-2xl border bg-white p-6 shadow-sm sm:p-8">
+      <div>
+        <h2 class="text-xl font-bold text-gray-900">Part別の成績</h2>
+
+        <p class="mt-1 text-sm text-gray-500">
+          TOEICの各Partの得意・苦手を確認できます。
+        </p>
+      </div>
+
+      {
+        sortedParts.length > 0 ? (
+          <div class="mt-7 grid gap-x-10 gap-y-7 md:grid-cols-2">
+            {sortedParts.map((item) => (
+              <div>
+                <div class="mb-2 flex items-center justify-between gap-4">
+                  <div>
+                    <span class="font-semibold text-gray-900">
+                      Part {item.part}
+                    </span>
+
+                    <span class="ml-2 text-sm text-gray-400">
+                      {item.questions}問
+                    </span>
+                  </div>
+
+                  <span
+                    class:list={["font-bold", getScoreClass(item.accuracy)]}
+                  >
+                    {item.accuracy}%
+                  </span>
+                </div>
+
+                <div class="h-3 overflow-hidden rounded-full bg-gray-100">
+                  <div
+                    class:list={[
+                      "h-full rounded-full transition-all",
+                      getScoreBarClass(item.accuracy),
+                    ]}
+                    style={`width: ${item.accuracy}%`}
+                  />
+                </div>
+
+                <p class="mt-1.5 text-xs text-gray-400">
+                  {item.questions}問中{item.correct}問正解
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div class="py-10 text-center">
+            <p class="text-sm text-gray-500">
+              学習を行うと、Part別の成績が表示されます。
+            </p>
+          </div>
+        )
+      }
+    </section>
+
+    <!-- ================================================================ -->
+    <!-- DIFFICULTY -->
+    <!-- ================================================================ -->
+
+    <section class="mt-6 rounded-2xl border bg-white p-6 shadow-sm sm:p-8">
+      <div>
+        <h2 class="text-xl font-bold text-gray-900">難易度別の正答率</h2>
+
+        <p class="mt-1 text-sm text-gray-500">
+          問題の難易度が上がるにつれて、正答率がどのように変化するか確認できます。
+        </p>
+      </div>
+
+      {
+        history.byDifficulty.filter((item) => item.difficulty !== "unknown")
+          .length > 0 ? (
+          <div class="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {history.byDifficulty
+              .filter((item) => item.difficulty !== "unknown")
+              .map((item) => (
+                <div class="rounded-xl border bg-gray-50 p-5">
+                  <div class="flex items-center justify-between gap-4">
+                    <p class="font-semibold text-gray-900">
+                      {formatDifficulty(item.difficulty)}
+                    </p>
+
+                    <p
+                      class:list={[
+                        "text-2xl font-bold",
+                        getScoreClass(item.accuracy),
+                      ]}
+                    >
+                      {item.accuracy}%
+                    </p>
+                  </div>
+
+                  <p class="mt-1 text-sm text-gray-500">
+                    {item.questions}問中{item.correct}問正解
+                  </p>
+
+                  <div class="mt-4 h-2 overflow-hidden rounded-full bg-gray-200">
+                    <div
+                      class:list={[
+                        "h-full rounded-full",
+                        getScoreBarClass(item.accuracy),
+                      ]}
+                      style={`width: ${item.accuracy}%`}
+                    />
+                  </div>
+                </div>
+              ))}
+          </div>
+        ) : (
+          <div class="py-10 text-center">
+            <p class="text-sm text-gray-500">
+              問題をもっと解くと、難易度別のデータが表示されます。
+            </p>
+          </div>
+        )
+      }
+    </section>
+
+    <!-- ================================================================ -->
+    <!-- WHAT TO WORK ON -->
+    <!-- ================================================================ -->
+
+    {
+      history.weakAreas.length > 0 && (
+        <section class="mt-6 rounded-2xl border bg-white p-6 shadow-sm sm:p-8">
+          <div>
+            <h2 class="text-xl font-bold text-gray-900">
+              重点的に取り組む分野
+            </h2>
+
+            <p class="mt-1 text-sm text-gray-500">
+              これまでに解答した問題をもとに、特に苦手な分野を表示しています。
+            </p>
+          </div>
+
+          <div class="mt-6 space-y-3">
+            {history.weakAreas.map((area, index) => (
+              <div class="flex items-center gap-4 rounded-xl border p-4">
+                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-bold text-gray-500">
+                  {index + 1}
+                </div>
+
+                <div class="min-w-0 flex-1">
+                  <p class="font-semibold text-gray-900">{area.name}</p>
+
+                  <p class="mt-1 text-sm text-gray-500">
+                    {area.questions}問解答
+                  </p>
+                </div>
+
+                <span
+                  class:list={[
+                    "shrink-0 text-lg font-bold",
+                    getScoreClass(area.accuracy),
+                  ]}
+                >
+                  {area.accuracy}%
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )
+    }
+
+    <!-- ================================================================ -->
+    <!-- QUESTION TYPES -->
+    <!-- ================================================================ -->
+
+    {
+      history.byQuestionType.length > 0 && (
+        <section class="mt-6 rounded-2xl border bg-white p-6 shadow-sm sm:p-8">
+          <div>
+            <h2 class="text-xl font-bold text-gray-900">問題形式</h2>
+
+            <p class="mt-1 text-sm text-gray-500">
+              どのような問題形式が特に苦手なのか確認できます。
+            </p>
+          </div>
+
+          <div class="mt-6 grid gap-3 sm:grid-cols-2">
+            {history.byQuestionType.map((item) => (
+              <div class="flex items-center justify-between gap-4 rounded-xl border p-5">
+                <div>
+                  <p class="font-semibold text-gray-900">
+                    {formatQuestionType(item.questionType)}
+                  </p>
+
+                  <p class="mt-1 text-sm text-gray-500">
+                    {item.questions}問中{item.correct}問正解
+                  </p>
+                </div>
+
+                <span
+                  class:list={[
+                    "text-xl font-bold",
+                    getScoreClass(item.accuracy),
+                  ]}
+                >
+                  {item.accuracy}%
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )
+    }
+
+    <!-- ================================================================ -->
+    <!-- RECENT PRACTICE -->
+    <!-- ================================================================ -->
+
+    <section class="mt-6 rounded-2xl border bg-white p-6 shadow-sm sm:p-8">
+      <div
+        class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"
+      >
+        <div>
+          <h2 class="text-xl font-bold text-gray-900">最近の学習</h2>
+
+          <p class="mt-1 text-sm text-gray-500">
+            最近完了した学習セッションを確認できます。
+          </p>
+        </div>
+
+        {
+          history.recentSessions.length > 0 && (
+            <span class="text-sm text-gray-400">
+              過去{history.recentSessions.length}セッション
+            </span>
+          )
+        }
+      </div>
+
+      {
+        history.recentSessions.length > 0 ? (
+          <div class="mt-6 divide-y">
+            {history.recentSessions.map((session) => (
+              <div class="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
+                <div class="min-w-0">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <p class="font-semibold text-gray-900">
+                      {session.exam.toUpperCase()} · Part {session.part}
+                    </p>
+
+                    <span class="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-500">
+                      {session.correctAnswers}/{session.totalQuestions}
+                    </span>
+                  </div>
+
+                  <p class="mt-1.5 text-sm text-gray-500">
+                    {session.completedAt
+                      ? new Date(session.completedAt).toLocaleDateString(
+                          "ja-JP",
+                          {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          },
+                        )
+                      : ""}
+                  </p>
+                </div>
+
+                <div class="flex items-center justify-between gap-4 sm:justify-end">
+                  <span
+                    class:list={[
+                      "text-xl font-bold",
+                      getScoreClass(session.score),
+                    ]}
+                  >
+                    {session.score}%
+                  </span>
+
+                  <a
+                    href={`/practice/${session.id}/result`}
+                    class="rounded-lg border px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                  >
+                    復習 →
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div class="py-14 text-center">
+            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 text-2xl">
+              📝
+            </div>
+
+            <p class="mt-5 font-semibold text-gray-900">
+              まだ完了した学習はありません
+            </p>
+
+            <p class="mx-auto mt-2 max-w-md text-sm text-gray-500">
+              問題を解いて学習を完了すると、ここに成績が表示されます。
+            </p>
+
+            <a
+              href="/practice"
+              class="mt-6 inline-flex rounded-xl bg-gray-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-gray-700"
+            >
+              学習を始める
+            </a>
+          </div>
+        )
+      }
+    </section>
+
+    <!-- ================================================================ -->
+    <!-- FOOTER CTA -->
+    <!-- ================================================================ -->
+
+    {
+      history.summary.questionsAnswered > 0 && (
+        <div class="mt-8 flex flex-col items-center justify-between gap-4 rounded-2xl bg-gray-900 px-6 py-6 text-center sm:flex-row sm:text-left">
+          <div>
+            <p class="font-semibold text-white">
+              苦手分野を伸ばす準備はできましたか？
+            </p>
+
+            <p class="mt-1 text-sm text-gray-400">
+              学習を続けると、成績や統計が自動的に更新されます。
+            </p>
+          </div>
+
+          <a
+            href="/practice"
+            class="shrink-0 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-gray-900 transition hover:bg-gray-100"
+          >
+            今すぐ学習する →
+          </a>
+        </div>
+      )
+    }
+  </main>
+</AppLayout>

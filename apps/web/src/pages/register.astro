@@ -1,0 +1,228 @@
+---
+import AppLayout from "../layouts/AppLayout.astro"
+import { setSession } from "../lib/session"
+
+const API_URL = import.meta.env.API_URL
+
+let error: string | null = null
+
+if (Astro.request.method === "POST") {
+  const formData = await Astro.request.formData()
+
+  const name = formData.get("name")
+  const email = formData.get("email")
+  const password = formData.get("password")
+  const confirmPassword = formData.get("confirmPassword")
+
+  if (typeof email !== "string" || typeof password !== "string") {
+    error = "Please enter a valid email and password."
+  } else if (
+    typeof confirmPassword !== "string" ||
+    password !== confirmPassword
+  ) {
+    error = "Passwords do not match."
+  } else if (password.length < 8) {
+    error = "Password must be at least 8 characters."
+  } else {
+    try {
+      const response = await fetch(`${API_URL}/api/v1/auth/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          name:
+            typeof name === "string" && name.trim() ? name.trim() : undefined,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        error = data.error ?? "Unable to create your account."
+      } else if (!data.sessionToken) {
+        error = "Account created but no session was created."
+      } else {
+        setSession(Astro, data.sessionToken)
+
+        return Astro.redirect("/dashboard")
+      }
+    } catch {
+      error = "Unable to connect to the server."
+    }
+  }
+}
+---
+
+<AppLayout title="アカウント作成 | 英語ビット">
+  <main
+    class="relative flex min-h-[calc(100vh-4rem)] items-center justify-center overflow-hidden bg-white px-6 py-16"
+  >
+    <div
+      class="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-slate-100 blur-3xl"
+    >
+    </div>
+
+    <div
+      class="pointer-events-none absolute -bottom-32 -left-32 h-80 w-80 rounded-full bg-slate-50 blur-3xl"
+    >
+    </div>
+
+    <div class="relative w-full max-w-md">
+      <!-- HEADER -->
+
+      <div class="mb-8 text-center">
+        <a href="/" class="text-sm font-bold tracking-tight text-slate-950">
+          英語ビット
+        </a>
+
+        <h1 class="mt-6 text-3xl font-bold tracking-tight text-slate-950">
+          アカウントを作成
+        </h1>
+
+        <p class="mt-2 text-sm leading-6 text-[var(--muted)]">
+          TOEIC学習を、今日から始めましょう。
+        </p>
+      </div>
+
+      <!-- FORM CARD -->
+
+      <div class="rounded-2xl border bg-white p-6 shadow-sm sm:p-8">
+        {
+          error && (
+            <div
+              role="alert"
+              class="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700"
+            >
+              {error}
+            </div>
+          )
+        }
+
+        <form method="POST" class="space-y-5">
+          <!-- NAME -->
+
+          <div>
+            <label
+              for="name"
+              class="mb-2 block text-sm font-semibold text-slate-900"
+            >
+              名前
+              <span class="font-normal text-[var(--muted)]">（任意）</span>
+            </label>
+
+            <input
+              id="name"
+              name="name"
+              type="text"
+              autocomplete="name"
+              maxlength="100"
+              placeholder="Alex"
+              class="w-full rounded-xl border border-[var(--border)] bg-white px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
+            />
+          </div>
+
+          <!-- EMAIL -->
+
+          <div>
+            <label
+              for="email"
+              class="mb-2 block text-sm font-semibold text-slate-900"
+            >
+              メールアドレス
+            </label>
+
+            <input
+              id="email"
+              name="email"
+              type="email"
+              autocomplete="email"
+              required
+              placeholder="you@example.com"
+              class="w-full rounded-xl border border-[var(--border)] bg-white px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
+            />
+          </div>
+
+          <!-- PASSWORD -->
+
+          <div>
+            <label
+              for="password"
+              class="mb-2 block text-sm font-semibold text-slate-900"
+            >
+              パスワード
+            </label>
+
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autocomplete="new-password"
+              required
+              minlength="8"
+              maxlength="128"
+              placeholder="8文字以上"
+              class="w-full rounded-xl border border-[var(--border)] bg-white px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
+            />
+
+            <p class="mt-2 text-xs text-[var(--muted)]">
+              8〜128文字で入力してください。
+            </p>
+          </div>
+
+          <!-- CONFIRM PASSWORD -->
+
+          <div>
+            <label
+              for="confirmPassword"
+              class="mb-2 block text-sm font-semibold text-slate-900"
+            >
+              パスワード（確認）
+            </label>
+
+            <input
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+              autocomplete="new-password"
+              required
+              minlength="8"
+              maxlength="128"
+              placeholder="もう一度入力してください"
+              class="w-full rounded-xl border border-[var(--border)] bg-white px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
+            />
+          </div>
+
+          <!-- SUBMIT -->
+
+          <button
+            type="submit"
+            class="w-full rounded-xl bg-[var(--primary)] px-4 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:opacity-90 active:translate-y-0"
+          >
+            アカウントを作成 →
+          </button>
+        </form>
+
+        <!-- LOGIN -->
+
+        <div class="mt-6 border-t pt-6 text-center">
+          <p class="text-sm text-[var(--muted)]">
+            すでにアカウントをお持ちですか？
+            <a
+              href="/login"
+              class="font-semibold text-[var(--primary)] hover:underline"
+            >
+              ログイン
+            </a>
+          </p>
+        </div>
+      </div>
+
+      <p class="mt-6 text-center text-xs leading-5 text-slate-400">
+        アカウントを作成することで、英語ビットの学習サービスをご利用いただけます。
+      </p>
+    </div>
+  </main>
+</AppLayout>

@@ -1,0 +1,207 @@
+---
+import AppLayout from "../layouts/AppLayout.astro"
+import { getCurrentUser } from "../lib/auth"
+import { setSession } from "../lib/session"
+
+const API_URL = import.meta.env.API_URL
+
+const user = await getCurrentUser(Astro)
+
+if (user) {
+  return Astro.redirect("/dashboard")
+}
+
+let error: string | null = null
+
+if (Astro.request.method === "POST") {
+  const formData = await Astro.request.formData()
+
+  const email = formData.get("email")
+  const password = formData.get("password")
+
+  if (typeof email !== "string" || typeof password !== "string") {
+    error = "Invalid email or password"
+  } else {
+    try {
+      const response = await fetch(`${API_URL}/api/v1/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        error = data.error ?? "Invalid email or password"
+      } else if (!data.sessionToken) {
+        error = "Login succeeded but no session was created."
+      } else {
+        setSession(Astro, data.sessionToken)
+
+        return Astro.redirect("/dashboard")
+      }
+    } catch {
+      error = "Unable to connect to the server."
+    }
+  }
+}
+---
+
+<AppLayout title="ログイン | 英語ビット">
+  <main
+    class="relative flex min-h-[calc(100vh-4rem)] items-center justify-center overflow-hidden bg-white px-6 py-16"
+  >
+    <div
+      class="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-slate-100 blur-3xl"
+    >
+    </div>
+
+    <div
+      class="pointer-events-none absolute -bottom-32 -left-32 h-80 w-80 rounded-full bg-slate-50 blur-3xl"
+    >
+    </div>
+
+    <div class="relative w-full max-w-md">
+      <!-- HEADER -->
+
+      <div class="mb-8 text-center">
+        <a href="/" class="text-sm font-bold tracking-tight text-slate-950">
+          英語ビット
+        </a>
+
+        <h1 class="mt-6 text-3xl font-bold tracking-tight text-slate-950">
+          おかえりなさい
+        </h1>
+
+        <p class="mt-2 text-sm leading-6 text-[var(--muted)]">
+          TOEIC学習を続けましょう。
+        </p>
+      </div>
+
+      <!-- FORM CARD -->
+
+      <div class="rounded-2xl border bg-white p-6 shadow-sm sm:p-8">
+        {
+          error && (
+            <div
+              role="alert"
+              class="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700"
+            >
+              {error}
+            </div>
+          )
+        }
+
+        <form method="POST" class="space-y-5">
+          <!-- EMAIL -->
+
+          <div>
+            <label
+              for="email"
+              class="mb-2 block text-sm font-semibold text-slate-900"
+            >
+              メールアドレス
+            </label>
+
+            <input
+              id="email"
+              name="email"
+              type="email"
+              autocomplete="email"
+              required
+              placeholder="you@example.com"
+              class="w-full rounded-xl border border-[var(--border)] bg-white px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
+            />
+          </div>
+
+          <!-- PASSWORD -->
+
+          <div>
+            <div class="mb-2 flex items-center justify-between">
+              <label
+                for="password"
+                class="block text-sm font-semibold text-slate-900"
+              >
+                パスワード
+              </label>
+
+              <a
+                href="/forgot-password"
+                class="text-sm font-medium text-[var(--primary)] hover:underline"
+              >
+                パスワードを忘れた？
+              </a>
+            </div>
+
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              required
+              placeholder="••••••••"
+              class="w-full rounded-xl border border-[var(--border)] bg-white px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
+            />
+          </div>
+
+          <!-- LOGIN -->
+
+          <button
+            type="submit"
+            class="w-full rounded-xl bg-[var(--primary)] px-4 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:opacity-90 active:translate-y-0"
+          >
+            ログイン →
+          </button>
+
+          <!-- DIVIDER -->
+
+          <div class="relative py-1">
+            <div class="absolute inset-0 flex items-center">
+              <div class="w-full border-t border-[var(--border)]"></div>
+            </div>
+
+            <div class="relative flex justify-center">
+              <span class="bg-white px-3 text-xs text-[var(--muted)]">
+                または
+              </span>
+            </div>
+          </div>
+
+          <!-- GOOGLE -->
+
+          <a
+            href="http://localhost:3001/api/v1/auth/google"
+            class="flex w-full items-center justify-center gap-3 rounded-xl border border-[var(--border)] bg-white px-4 py-3.5 text-sm font-semibold text-slate-900 transition hover:-translate-y-0.5 hover:bg-slate-50"
+          >
+            <span
+              class="flex h-5 w-5 items-center justify-center text-sm font-bold"
+            >
+              G
+            </span>
+
+            Googleで続ける
+          </a>
+        </form>
+
+        <!-- REGISTER -->
+
+        <div class="mt-6 border-t pt-6 text-center">
+          <p class="text-sm text-[var(--muted)]">
+            アカウントをお持ちでないですか？
+            <a
+              href="/register"
+              class="font-semibold text-[var(--primary)] hover:underline"
+            >
+              アカウントを作成
+            </a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </main>
+</AppLayout>
