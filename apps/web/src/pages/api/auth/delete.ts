@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro"
 
-const API_URL = "http://localhost:3001"
+const API_URL = "https://api.eigobit.com"
 
 export const DELETE: APIRoute = async ({ cookies }) => {
   const sessionToken = cookies.get("toeic_session")?.value

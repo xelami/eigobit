@@ -23,5 +23,5 @@ export const googleLink = new Google(
 
   clientSecret,
 
-  "http://localhost:3001/api/v1/auth/link/google/callback",
+  "https://api.eigobit.com/api/v1/auth/link/google/callback",
 )

@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro"
 
-const API_URL = "http://localhost:3001"
+const API_URL = "https://api.eigobit.com"
 
 export const POST: APIRoute = async ({ request, cookies, redirect }) => {
   const formData = await request.formData()
