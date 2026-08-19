@@ -26,13 +26,13 @@ const oauthLinkRoutes: FastifyPluginAsync = async (app) => {
     const sessionToken = request.cookies.toeic_session
 
     if (!sessionToken) {
-      return reply.redirect("http://localhost:4321/login?error=unauthorized")
+      return reply.redirect(`${process.env.WEB_URL}/login?error=unauthorized`)
     }
 
     const user = await getAuthenticatedUserFromCookie(sessionToken)
 
     if (!user) {
-      return reply.redirect("http://localhost:4321/login?error=unauthorized")
+      return reply.redirect(`${process.env.WEB_URL}/login?error=unauthorized`)
     }
 
     /*
@@ -163,13 +163,17 @@ const oauthLinkRoutes: FastifyPluginAsync = async (app) => {
     const sessionToken = request.cookies.toeic_session
 
     if (!sessionToken) {
-      return reply.redirect("http://localhost:4321/login?error=session_expired")
+      return reply.redirect(
+        `${process.env.WEB_URL}/login?error=session_expired`,
+      )
     }
 
     const authenticatedUser = await getAuthenticatedUserFromCookie(sessionToken)
 
     if (!authenticatedUser) {
-      return reply.redirect("http://localhost:4321/login?error=session_expired")
+      return reply.redirect(
+        `${process.env.WEB_URL}/login?error=session_expired`,
+      )
     }
 
     /*
@@ -239,7 +243,7 @@ const oauthLinkRoutes: FastifyPluginAsync = async (app) => {
 
     if (existingUser) {
       return reply.redirect(
-        "http://localhost:4321/settings?error=google_already_linked",
+        `${process.env.WEB_URL}/settings?error=google_already_linked`,
       )
     }
 
@@ -257,11 +261,11 @@ const oauthLinkRoutes: FastifyPluginAsync = async (app) => {
       })
     } catch {
       return reply.redirect(
-        "http://localhost:4321/settings?error=google_link_failed",
+        `${process.env.WEB_URL}/settings?error=google_link_failed`,
       )
     }
 
-    return reply.redirect("http://localhost:4321/settings?linked=google")
+    return reply.redirect(`${process.env.WEB_URL}/settings?linked=google`)
   })
 
   /*

@@ -154,7 +154,7 @@ const oauthRoutes: FastifyPluginAsync = async (app) => {
 
     if (result.status === "email_exists") {
       return reply.redirect(
-        "http://localhost:4321/login?error=oauth_account_exists",
+        `${process.env.WEB_URL}/login?error=oauth_account_exists`,
       )
     }
 
@@ -180,7 +180,7 @@ const oauthRoutes: FastifyPluginAsync = async (app) => {
     /*
      * Send the user back to Astro.
      */
-    return reply.redirect("http://localhost:4321/dashboard")
+    return reply.redirect(`${process.env.WEB_URL}/dashboard`)
   })
 }
 
