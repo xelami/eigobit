@@ -3,11 +3,205 @@ import AppLayout from "../layouts/AppLayout.astro"
 import { requireAuth } from "../lib/require-auth"
 import { apiFetch } from "../lib/api"
 
-// const user = await requireAuth(Astro)
+const authuser = await requireAuth(Astro)
 
-// if (user instanceof Response) {
-//   return user
-// }
+if (authuser instanceof Response) {
+  return authuser
+}
+
+type DashboardData = {
+  user: {
+    id: string
+    email: string | null
+    name: string | null
+    onboardingCompleted: string | null
+  }
+
+  onboarding: {
+    profile: {
+      englishLevel: string
+      studyTime: string
+      onboardingCompleted: string | null
+    } | null
+
+    learningGoals: string[]
+
+    interests: string[]
+
+    examGoals: {
+      exam: string
+      toeicTargetScore: string | null
+      eikenTargetGrade: string | null
+    }[]
+  }
+
+  stats: {
+    practice: {
+      totalSessions: number
+      completedSessions: number
+      answeredQuestions: number
+      correctAnswers: number
+      accuracy: number
+    }
+
+    today: {
+      questionsAnswered: number
+    }
+
+    vocabulary: {
+      count: number
+    }
+  }
+
+  practiceSummary: {
+    completedSessions: number
+    totalQuestions: number
+    totalCorrectAnswers: number
+    averageScore: number
+
+    recentSessions: {
+      id: string
+      exam: string
+      part: string
+      totalQuestions: number
+      correctAnswers: number
+      completedAt: string | null
+      createdAt: string
+    }[]
+  }
+}
+
+let dashboard: DashboardData
+
+try {
+  dashboard = await apiFetch<DashboardData>("/api/v1/dashboard", Astro)
+} catch {
+  return Astro.redirect("/login")
+}
+
+const user = dashboard.user
+const onboarding = dashboard.onboarding
+const stats = dashboard.stats
+const practiceSummary = dashboard.practiceSummary
+
+/*
+ * ============================================================================
+ * ONBOARDING
+ * ============================================================================
+ */
+
+if (!onboarding.profile?.onboardingCompleted) {
+  return Astro.redirect("/onboarding")
+}
+
+/*
+ * ============================================================================
+ * STATS
+ * ============================================================================
+ */
+
+const completedPracticeSessions = practiceSummary?.completedSessions ?? 0
+
+const practiceStats = stats.practice
+
+const todayQuestions = stats.today.questionsAnswered
+
+const vocabularyCount = stats.vocabulary.count
+
+/*
+ * ============================================================================
+ * GOALS
+ * ============================================================================
+ */
+
+const goals = onboarding.learningGoals ?? []
+const examGoals = onboarding.examGoals ?? []
+
+const isToeic = goals.includes("toeic")
+const isEiken = goals.includes("eiken")
+
+const primaryGoal = isToeic ? "TOEIC" : isEiken ? "EIKEN" : "English"
+
+const toeicGoal = examGoals.find((goal) => goal.exam === "toeic")
+
+const eikenGoal = examGoals.find((goal) => goal.exam === "eiken")
+
+const targetScore = toeicGoal?.toeicTargetScore
+
+const targetGrade = eikenGoal?.eikenTargetGrade
+
+/*
+ * ============================================================================
+ * TODAY'S PHRASE
+ * ============================================================================
+ */
+
+const phrase = {
+  english: "It's worth a shot.",
+  japanese: "やってみる価値はあるよ。",
+  explanation:
+    "Use this when you think something is worth trying, even if you're not sure it will work.",
+  example: "I don't know if I'll pass, but it's worth a shot.",
+}
+
+/*
+ * ============================================================================
+ * TODAY'S TARGET
+ * ============================================================================
+ */
+
+const studyTime = onboarding.profile?.studyTime ?? "10"
+
+const dailyTarget =
+  studyTime === "5"
+    ? 5
+    : studyTime === "10"
+      ? 10
+      : studyTime === "20"
+        ? 20
+        : studyTime === "30"
+          ? 30
+          : studyTime === "60"
+            ? 60
+            : 10
+
+const todayProgress = Math.min(
+  Math.round((todayQuestions / dailyTarget) * 100),
+  100,
+)
+
+/*
+ * ============================================================================
+ * PRACTICE OPTIONS
+ * ============================================================================
+ */
+
+const secondaryPracticeOptions = [
+  {
+    title: "単語",
+    description: "保存した単語を復習しましょう",
+    href: "/vocabulary",
+    icon: "Aa",
+    stat: `${vocabularyCount} 語を保存中`,
+    available: true,
+  },
+  {
+    title: "リスニング",
+    description: "英語を聞き取る力を鍛えましょう",
+    href: "/study?type=listening",
+    icon: "♫",
+    stat: "リスニングを練習",
+    available: false,
+  },
+  {
+    title: "リーディング",
+    description: "英文読解力を伸ばしましょう",
+    href: "/study?type=reading",
+    icon: "▤",
+    stat: "リーディングを練習",
+    available: false,
+  },
+]
 
 // /*
 //  * ============================================================================
@@ -118,210 +312,210 @@ import { apiFetch } from "../lib/api"
 //   // Continue without practice summary.
 // }
 
-const user = await requireAuth(Astro)
+// const user = await requireAuth(Astro)
 
-if (user instanceof Response) {
-  return user
-}
+// if (user instanceof Response) {
+//   return user
+// }
 
-const [onboardingResult, statsResult, practiceSummaryResult] =
-  await Promise.allSettled([
-    apiFetch<{
-      profile: {
-        englishLevel: string
+// const [onboardingResult, statsResult, practiceSummaryResult] =
+//   await Promise.allSettled([
+//     apiFetch<{
+//       profile: {
+//         englishLevel: string
 
-        studyTime: string
+//         studyTime: string
 
-        onboardingCompleted: string | null
-      } | null
+//         onboardingCompleted: string | null
+//       } | null
 
-      learningGoals: string[]
+//       learningGoals: string[]
 
-      interests: string[]
+//       interests: string[]
 
-      examGoals: {
-        exam: string
+//       examGoals: {
+//         exam: string
 
-        toeicTargetScore: string | null
+//         toeicTargetScore: string | null
 
-        eikenTargetGrade: string | null
-      }[]
-    }>("/api/v1/onboarding", Astro),
+//         eikenTargetGrade: string | null
+//       }[]
+//     }>("/api/v1/onboarding", Astro),
 
-    apiFetch<{
-      practice: {
-        totalSessions: number
+//     apiFetch<{
+//       practice: {
+//         totalSessions: number
 
-        completedSessions: number
+//         completedSessions: number
 
-        answeredQuestions: number
+//         answeredQuestions: number
 
-        correctAnswers: number
+//         correctAnswers: number
 
-        accuracy: number
-      }
+//         accuracy: number
+//       }
 
-      today: {
-        questionsAnswered: number
-      }
+//       today: {
+//         questionsAnswered: number
+//       }
 
-      vocabulary: {
-        count: number
-      }
-    }>("/api/v1/practice/stats", Astro),
+//       vocabulary: {
+//         count: number
+//       }
+//     }>("/api/v1/practice/stats", Astro),
 
-    apiFetch<{
-      completedSessions: number
+//     apiFetch<{
+//       completedSessions: number
 
-      totalQuestions: number
+//       totalQuestions: number
 
-      totalCorrectAnswers: number
+//       totalCorrectAnswers: number
 
-      averageScore: number
+//       averageScore: number
 
-      recentSessions: {
-        id: string
+//       recentSessions: {
+//         id: string
 
-        exam: string
+//         exam: string
 
-        part: string
+//         part: string
 
-        totalQuestions: number
+//         totalQuestions: number
 
-        correctAnswers: number
+//         correctAnswers: number
 
-        completedAt: string | null
+//         completedAt: string | null
 
-        createdAt: string
-      }[]
-    }>("/api/v1/practice/summary", Astro),
-  ])
+//         createdAt: string
+//       }[]
+//     }>("/api/v1/practice/summary", Astro),
+//   ])
 
-const onboarding =
-  onboardingResult.status === "fulfilled" ? onboardingResult.value : null
+// const onboarding =
+//   onboardingResult.status === "fulfilled" ? onboardingResult.value : null
 
-const stats = statsResult.status === "fulfilled" ? statsResult.value : null
+// const stats = statsResult.status === "fulfilled" ? statsResult.value : null
 
-const practiceSummary =
-  practiceSummaryResult.status === "fulfilled"
-    ? practiceSummaryResult.value
-    : null
+// const practiceSummary =
+//   practiceSummaryResult.status === "fulfilled"
+//     ? practiceSummaryResult.value
+//     : null
 
-if (!onboarding?.profile?.onboardingCompleted) {
-  return Astro.redirect("/onboarding")
-}
+// if (!onboarding?.profile?.onboardingCompleted) {
+//   return Astro.redirect("/onboarding")
+// }
 
-const completedPracticeSessions = practiceSummary?.completedSessions ?? 0
+// const completedPracticeSessions = practiceSummary?.completedSessions ?? 0
 
-const practiceStats = stats?.practice ?? {
-  totalSessions: 0,
-  completedSessions: 0,
-  answeredQuestions: 0,
-  correctAnswers: 0,
-  accuracy: 0,
-}
+// const practiceStats = stats?.practice ?? {
+//   totalSessions: 0,
+//   completedSessions: 0,
+//   answeredQuestions: 0,
+//   correctAnswers: 0,
+//   accuracy: 0,
+// }
 
-const todayQuestions = stats?.today.questionsAnswered ?? 0
+// const todayQuestions = stats?.today.questionsAnswered ?? 0
 
-const vocabularyCount = stats?.vocabulary.count ?? 0
+// const vocabularyCount = stats?.vocabulary.count ?? 0
 
-/*
- * ============================================================================
- * GOALS
- * ============================================================================
- */
+// /*
+//  * ============================================================================
+//  * GOALS
+//  * ============================================================================
+//  */
 
-const goals = onboarding?.learningGoals ?? []
-const examGoals = onboarding?.examGoals ?? []
+// const goals = onboarding?.learningGoals ?? []
+// const examGoals = onboarding?.examGoals ?? []
 
-const isToeic = goals.includes("toeic")
-const isEiken = goals.includes("eiken")
+// const isToeic = goals.includes("toeic")
+// const isEiken = goals.includes("eiken")
 
-const primaryGoal = isToeic ? "TOEIC" : isEiken ? "EIKEN" : "English"
+// const primaryGoal = isToeic ? "TOEIC" : isEiken ? "EIKEN" : "English"
 
-const toeicGoal = examGoals.find((goal) => goal.exam === "toeic")
+// const toeicGoal = examGoals.find((goal) => goal.exam === "toeic")
 
-const eikenGoal = examGoals.find((goal) => goal.exam === "eiken")
+// const eikenGoal = examGoals.find((goal) => goal.exam === "eiken")
 
-const targetScore = toeicGoal?.toeicTargetScore
+// const targetScore = toeicGoal?.toeicTargetScore
 
-const targetGrade = eikenGoal?.eikenTargetGrade
+// const targetGrade = eikenGoal?.eikenTargetGrade
 
-/*
- * ============================================================================
- * TODAY'S PHRASE
- * ============================================================================
- */
+// /*
+//  * ============================================================================
+//  * TODAY'S PHRASE
+//  * ============================================================================
+//  */
 
-const phrase = {
-  english: "It's worth a shot.",
-  japanese: "やってみる価値はあるよ。",
-  explanation:
-    "Use this when you think something is worth trying, even if you're not sure it will work.",
-  example: "I don't know if I'll pass, but it's worth a shot.",
-}
+// const phrase = {
+//   english: "It's worth a shot.",
+//   japanese: "やってみる価値はあるよ。",
+//   explanation:
+//     "Use this when you think something is worth trying, even if you're not sure it will work.",
+//   example: "I don't know if I'll pass, but it's worth a shot.",
+// }
 
-/*
- * ============================================================================
- * TODAY'S TARGET
- * ============================================================================
- */
+// /*
+//  * ============================================================================
+//  * TODAY'S TARGET
+//  * ============================================================================
+//  */
 
-const studyTime = onboarding?.profile?.studyTime ?? "10"
+// const studyTime = onboarding?.profile?.studyTime ?? "10"
 
-const dailyTarget =
-  studyTime === "5"
-    ? 5
-    : studyTime === "10"
-      ? 10
-      : studyTime === "20"
-        ? 20
-        : studyTime === "30"
-          ? 30
-          : studyTime === "60"
-            ? 60
-            : 10
+// const dailyTarget =
+//   studyTime === "5"
+//     ? 5
+//     : studyTime === "10"
+//       ? 10
+//       : studyTime === "20"
+//         ? 20
+//         : studyTime === "30"
+//           ? 30
+//           : studyTime === "60"
+//             ? 60
+//             : 10
 
-const todayProgress = Math.min(
-  Math.round((todayQuestions / dailyTarget) * 100),
-  100,
-)
+// const todayProgress = Math.min(
+//   Math.round((todayQuestions / dailyTarget) * 100),
+//   100,
+// )
 
-/*
- * ============================================================================
- * PRACTICE OPTIONS
- * ============================================================================
- */
+// /*
+//  * ============================================================================
+//  * PRACTICE OPTIONS
+//  * ============================================================================
+//  */
 
-const secondaryPracticeOptions = [
-  {
-    title: "単語",
-    description: "保存した単語を復習しましょう",
-    href: "/vocabulary",
-    icon: "Aa",
-    stat: `${vocabularyCount} 語を保存中`,
-    available: true,
-  },
-  {
-    title: "リスニング",
-    description: "英語を聞き取る力を鍛えましょう",
-    href: "/study?type=listening",
-    icon: "♫",
-    stat: "リスニングを練習",
-    available: false,
-  },
-  {
-    title: "リーディング",
-    description: "英文読解力を伸ばしましょう",
-    href: "/study?type=reading",
-    icon: "▤",
-    stat: "リーディングを練習",
-    available: false,
-  },
-]
+// const secondaryPracticeOptions = [
+//   {
+//     title: "単語",
+//     description: "保存した単語を復習しましょう",
+//     href: "/vocabulary",
+//     icon: "Aa",
+//     stat: `${vocabularyCount} 語を保存中`,
+//     available: true,
+//   },
+//   {
+//     title: "リスニング",
+//     description: "英語を聞き取る力を鍛えましょう",
+//     href: "/study?type=listening",
+//     icon: "♫",
+//     stat: "リスニングを練習",
+//     available: false,
+//   },
+//   {
+//     title: "リーディング",
+//     description: "英文読解力を伸ばしましょう",
+//     href: "/study?type=reading",
+//     icon: "▤",
+//     stat: "リーディングを練習",
+//     available: false,
+//   },
+// ]
 ---
 
-<AppLayout title="Dashboard" user={user}>
+<AppLayout title="Dashboard" user={authuser}>
   <main class="mx-auto max-w-7xl px-6 py-8">
     <!-- ================================================================== -->
     <!-- HEADER -->
