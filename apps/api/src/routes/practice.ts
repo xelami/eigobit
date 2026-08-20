@@ -618,11 +618,7 @@ const practiceRoutes: FastifyPluginAsync = async (app) => {
       })
     }
 
-    console.log(
-      "AUTH:",
-
-      Math.round(performance.now() - start),
-    )
+    console.log("AUTH:", Math.round(performance.now() - start))
 
     const { sessionId } = request.params as {
       sessionId: string
@@ -639,135 +635,139 @@ const practiceRoutes: FastifyPluginAsync = async (app) => {
       })
     }
 
-    const sessionStart = performance.now()
+    /*
+     * ==========================================================================
+     * GET SESSION + QUESTION + SELECTED OPTION + CORRECT OPTION
+     * ==========================================================================
+     *
+     * Previously these were 4 separate database round trips.
+     *
+     * We can get everything we need in one query.
+     */
 
-    const [session] = await db
+    const databaseStart = performance.now()
+
+    const rows = await db
       .select({
-        id: practiceSessions.id,
-        userId: practiceSessions.userId,
+        sessionId: practiceSessions.id,
         completedAt: practiceSessions.completedAt,
+
+        sessionQuestionId: practiceSessionQuestions.id,
+        questionId: practiceSessionQuestions.questionId,
+
+        selectedOptionId: practiceQuestionOptions.id,
+        selectedOptionIsCorrect: practiceQuestionOptions.isCorrect,
+
+        explanation: practiceQuestions.explanation,
+
+        correctOptionId: practiceQuestionOptions.id,
       })
-      .from(practiceSessions)
+      .from(practiceSessionQuestions)
+      .innerJoin(
+        practiceSessions,
+        eq(practiceSessionQuestions.sessionId, practiceSessions.id),
+      )
+      .innerJoin(
+        practiceQuestions,
+        eq(practiceSessionQuestions.questionId, practiceQuestions.id),
+      )
+      .innerJoin(
+        practiceQuestionOptions,
+        and(
+          eq(practiceQuestionOptions.questionId, practiceQuestions.id),
+          eq(practiceQuestionOptions.id, body.optionId),
+        ),
+      )
       .where(
         and(
           eq(practiceSessions.id, sessionId),
           eq(practiceSessions.userId, user.id),
+          eq(practiceSessionQuestions.questionId, body.questionId),
         ),
       )
       .limit(1)
 
-    if (!session) {
-      return reply.code(404).send({
-        error: "Practice session not found",
+    const row = rows[0]
+
+    if (!row) {
+      return reply.code(400).send({
+        error: "Invalid session, question or option",
       })
     }
 
-    if (session.completedAt) {
+    if (row.completedAt) {
       return reply.code(400).send({
         error: "Practice session is already completed",
       })
     }
 
     console.log(
-      "SESSION QUERY:",
-
-      Math.round(performance.now() - sessionStart),
+      "DATABASE SELECT:",
+      Math.round(performance.now() - databaseStart),
     )
 
-    const sessionQuestionsStart = performance.now()
+    /*
+     * ==========================================================================
+     * GET CORRECT OPTION
+     * ==========================================================================
+     *
+     * We still need the correct option ID because the selected option
+     * might be wrong.
+     *
+     * This is a second query, but we can make it very cheap.
+     */
 
-    const [sessionQuestion] = await db
-      .select({
-        id: practiceSessionQuestions.id,
-        questionId: practiceSessionQuestions.questionId,
-      })
-      .from(practiceSessionQuestions)
-      .where(
-        and(
-          eq(practiceSessionQuestions.sessionId, sessionId),
-          eq(practiceSessionQuestions.questionId, body.questionId),
-        ),
-      )
-      .limit(1)
+    const correctOptionStart = performance.now()
 
-    if (!sessionQuestion) {
-      return reply.code(404).send({
-        error: "Question is not part of this session",
-      })
-    }
-
-    console.log(
-      "SESSION QUERY:",
-
-      Math.round(performance.now() - sessionQuestionsStart),
-    )
-
-    const selectedOptionsStart = performance.now()
-
-    const [selectedOption] = await db
+    const [correctOption] = await db
       .select({
         id: practiceQuestionOptions.id,
-        isCorrect: practiceQuestionOptions.isCorrect,
-        explanation: practiceQuestions.explanation,
       })
       .from(practiceQuestionOptions)
-      .innerJoin(
-        practiceQuestions,
-        eq(practiceQuestionOptions.questionId, practiceQuestions.id),
-      )
       .where(
         and(
-          eq(practiceQuestionOptions.id, body.optionId),
           eq(practiceQuestionOptions.questionId, body.questionId),
+          eq(practiceQuestionOptions.isCorrect, true),
         ),
       )
       .limit(1)
 
-    if (!selectedOption) {
-      return reply.code(400).send({
-        error: "Invalid option for this question",
-      })
-    }
-
     console.log(
-      "SESSION QUERY:",
-
-      Math.round(performance.now() - selectedOptionsStart),
+      "CORRECT OPTION:",
+      Math.round(performance.now() - correctOptionStart),
     )
 
-    const correctOption = (
-      await db
-        .select({
-          id: practiceQuestionOptions.id,
-        })
-        .from(practiceQuestionOptions)
-        .where(
-          and(
-            eq(practiceQuestionOptions.questionId, body.questionId),
-            eq(practiceQuestionOptions.isCorrect, true),
-          ),
-        )
-        .limit(1)
-    )[0]
+    /*
+     * ==========================================================================
+     * SAVE ANSWER
+     * ==========================================================================
+     */
 
-    const isCorrect = selectedOption.isCorrect
+    const updateStart = performance.now()
 
     await db
       .update(practiceSessionQuestions)
       .set({
-        selectedOptionId: selectedOption.id,
-        isCorrect,
+        selectedOptionId: row.selectedOptionId,
+        isCorrect: row.selectedOptionIsCorrect,
         answeredAt: new Date(),
       })
-      .where(eq(practiceSessionQuestions.id, sessionQuestion.id))
+      .where(eq(practiceSessionQuestions.id, row.sessionQuestionId))
+
+    console.log("UPDATE:", Math.round(performance.now() - updateStart))
+
+    console.log(
+      "TOTAL AFTER AUTH:",
+      Math.round(performance.now() - databaseStart),
+    )
 
     return {
-      questionId: body.questionId,
-      selectedOptionId: selectedOption.id,
-      isCorrect,
-      correct: isCorrect,
+      questionId: row.questionId,
+      selectedOptionId: row.selectedOptionId,
+      isCorrect: row.selectedOptionIsCorrect,
+      correct: row.selectedOptionIsCorrect,
       correctOptionId: correctOption?.id ?? null,
-      explanation: selectedOption.explanation,
+      explanation: row.explanation,
     }
   })
 
