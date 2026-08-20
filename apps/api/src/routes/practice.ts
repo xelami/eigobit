@@ -1,5 +1,14 @@
 import type { FastifyPluginAsync } from "fastify"
-import { and, eq, inArray, count, gte, isNotNull, desc } from "drizzle-orm"
+import {
+  and,
+  eq,
+  inArray,
+  count,
+  gte,
+  isNotNull,
+  desc,
+  aliasedTable,
+} from "drizzle-orm"
 
 import { db } from "@repo/db"
 import {
@@ -467,6 +476,18 @@ const practiceRoutes: FastifyPluginAsync = async (app) => {
       sessionId: string
     }
 
+    const selectedOption = aliasedTable(
+      practiceQuestionOptions,
+
+      "selectedOption",
+    )
+
+    const correctOption = aliasedTable(
+      practiceQuestionOptions,
+
+      "correctOption",
+    )
+
     const [session] = await db
       .select({
         id: practiceSessions.id,
@@ -637,12 +658,17 @@ const practiceRoutes: FastifyPluginAsync = async (app) => {
 
     /*
      * ==========================================================================
-     * GET SESSION + QUESTION + SELECTED OPTION + CORRECT OPTION
+     * ONE SELECT
      * ==========================================================================
      *
-     * Previously these were 4 separate database round trips.
+     * Instead of:
      *
-     * We can get everything we need in one query.
+     * 1. Get session
+     * 2. Get session question
+     * 3. Get selected option
+     * 4. Get correct option
+     *
+     * We get everything we need in ONE database round-trip.
      */
 
     const databaseStart = performance.now()
@@ -653,68 +679,63 @@ const practiceRoutes: FastifyPluginAsync = async (app) => {
         completedAt: practiceSessions.completedAt,
 
         sessionQuestionId: practiceSessionQuestions.id,
-        questionId: practiceSessionQuestions.questionId,
 
         selectedOptionId: practiceQuestionOptions.id,
-        selectedOptionIsCorrect: practiceQuestionOptions.isCorrect,
+        selectedIsCorrect: practiceQuestionOptions.isCorrect,
 
         explanation: practiceQuestions.explanation,
-
-        correctOptionId: practiceQuestionOptions.id,
       })
-      .from(practiceSessionQuestions)
+      .from(practiceSessions)
       .innerJoin(
-        practiceSessions,
-        eq(practiceSessionQuestions.sessionId, practiceSessions.id),
-      )
-      .innerJoin(
-        practiceQuestions,
-        eq(practiceSessionQuestions.questionId, practiceQuestions.id),
+        practiceSessionQuestions,
+        and(
+          eq(practiceSessionQuestions.sessionId, practiceSessions.id),
+          eq(practiceSessionQuestions.questionId, body.questionId),
+        ),
       )
       .innerJoin(
         practiceQuestionOptions,
         and(
-          eq(practiceQuestionOptions.questionId, practiceQuestions.id),
           eq(practiceQuestionOptions.id, body.optionId),
+          eq(practiceQuestionOptions.questionId, body.questionId),
         ),
       )
+      .innerJoin(practiceQuestions, eq(practiceQuestions.id, body.questionId))
       .where(
         and(
           eq(practiceSessions.id, sessionId),
           eq(practiceSessions.userId, user.id),
-          eq(practiceSessionQuestions.questionId, body.questionId),
         ),
       )
       .limit(1)
-
-    const row = rows[0]
-
-    if (!row) {
-      return reply.code(400).send({
-        error: "Invalid session, question or option",
-      })
-    }
-
-    if (row.completedAt) {
-      return reply.code(400).send({
-        error: "Practice session is already completed",
-      })
-    }
 
     console.log(
       "DATABASE SELECT:",
       Math.round(performance.now() - databaseStart),
     )
 
+    const result = rows[0]
+
+    if (!result) {
+      return reply.code(404).send({
+        error: "Invalid session, question, or option",
+      })
+    }
+
+    if (result.completedAt) {
+      return reply.code(400).send({
+        error: "Practice session is already completed",
+      })
+    }
+
     /*
      * ==========================================================================
      * GET CORRECT OPTION
      * ==========================================================================
      *
-     * We still need the correct option ID because the selected option
-     * might be wrong.
+     * We still need the correct option ID.
      *
-     * This is a second query, but we can make it very cheap.
+     * This is a very small query and uses the question_id index.
      */
 
     const correctOptionStart = performance.now()
@@ -739,35 +760,34 @@ const practiceRoutes: FastifyPluginAsync = async (app) => {
 
     /*
      * ==========================================================================
-     * SAVE ANSWER
+     * UPDATE ANSWER
      * ==========================================================================
      */
+
+    const isCorrect = result.selectedIsCorrect
 
     const updateStart = performance.now()
 
     await db
       .update(practiceSessionQuestions)
       .set({
-        selectedOptionId: row.selectedOptionId,
-        isCorrect: row.selectedOptionIsCorrect,
+        selectedOptionId: result.selectedOptionId,
+        isCorrect,
         answeredAt: new Date(),
       })
-      .where(eq(practiceSessionQuestions.id, row.sessionQuestionId))
+      .where(eq(practiceSessionQuestions.id, result.sessionQuestionId))
 
     console.log("UPDATE:", Math.round(performance.now() - updateStart))
 
-    console.log(
-      "TOTAL AFTER AUTH:",
-      Math.round(performance.now() - databaseStart),
-    )
+    console.log("TOTAL AFTER AUTH:", Math.round(performance.now() - start))
 
     return {
-      questionId: row.questionId,
-      selectedOptionId: row.selectedOptionId,
-      isCorrect: row.selectedOptionIsCorrect,
-      correct: row.selectedOptionIsCorrect,
+      questionId: body.questionId,
+      selectedOptionId: result.selectedOptionId,
+      isCorrect,
+      correct: isCorrect,
       correctOptionId: correctOption?.id ?? null,
-      explanation: row.explanation,
+      explanation: result.explanation,
     }
   })
 
