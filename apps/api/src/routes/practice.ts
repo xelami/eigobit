@@ -836,7 +836,14 @@ const practiceRoutes: FastifyPluginAsync = async (app) => {
    */
 
   app.get("/sessions/:sessionId/result", async (request, reply) => {
+    const start = performance.now()
     const user = await getAuthenticatedUser(request)
+
+    console.log(
+      "AUTH:",
+
+      Math.round(performance.now() - start),
+    )
 
     if (!user) {
       return reply.code(401).send({
@@ -847,6 +854,8 @@ const practiceRoutes: FastifyPluginAsync = async (app) => {
     const { sessionId } = request.params as {
       sessionId: string
     }
+
+    const sessionStart = performance.now()
 
     const [session] = await db
       .select({
@@ -872,6 +881,14 @@ const practiceRoutes: FastifyPluginAsync = async (app) => {
         error: "Practice session not found",
       })
     }
+
+    console.log(
+      "SESSION QUERY:",
+
+      Math.round(performance.now() - sessionStart),
+    )
+
+    const questionStart = performance.now()
 
     const questions = await db
       .select({
@@ -899,6 +916,12 @@ const practiceRoutes: FastifyPluginAsync = async (app) => {
         eq(practiceQuestionOptions.questionId, practiceQuestions.id),
       )
       .where(eq(practiceSessionQuestions.sessionId, sessionId))
+
+    console.log(
+      "SESSION QUERY:",
+
+      Math.round(performance.now() - questionStart),
+    )
 
     const questionMap = new Map<
       string,

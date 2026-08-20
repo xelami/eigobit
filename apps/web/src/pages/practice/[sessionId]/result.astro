@@ -12,7 +12,7 @@ if (user instanceof Response) {
 const { sessionId } = Astro.params
 
 if (!sessionId) {
-  return Astro.redirect("/study")
+  return Astro.redirect("/practice")
 }
 
 type ResultQuestion = {
@@ -54,7 +54,7 @@ try {
 } catch (error) {
   console.error("Failed to load practice result:", error)
 
-  return Astro.redirect("/study")
+  return Astro.redirect("/practice")
 }
 
 const { session, questions } = result
@@ -78,7 +78,7 @@ const score = session.scorePercentage
 
     <div class="mb-8">
       <a
-        href="/study"
+        href="/practice"
         class="text-sm font-medium text-gray-500 transition hover:text-gray-900"
       >
         ← 学習に戻る
@@ -367,7 +367,7 @@ const score = session.scorePercentage
         </a>
 
         <a
-          href="/study"
+          href="/practice"
           class="flex-1 rounded-xl border bg-white px-6 py-3 text-center text-sm font-semibold transition hover:bg-gray-50"
         >
           学習に戻る

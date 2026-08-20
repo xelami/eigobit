@@ -1,16 +1,16 @@
 export function passwordResetEmail({ resetUrl }: { resetUrl: string }) {
   return {
-    subject: "Reset your English Bit password",
+    subject: "英語ビットのパスワードをリセット",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1>Reset your password</h1>
+        <h1>パスワードのリセット</h1>
 
         <p>
-          We received a request to reset your English Bit password.
+          英語ビットのパスワードリセットのリクエストを受け付けました。
         </p>
 
         <p>
-          Click the button below to choose a new password.
+          下のボタンをクリックして、新しいパスワードを設定してください。
         </p>
 
         <p>
@@ -25,16 +25,16 @@ export function passwordResetEmail({ resetUrl }: { resetUrl: string }) {
               border-radius: 8px;
             "
           >
-            Reset password
+            パスワードをリセット
           </a>
         </p>
 
         <p>
-          If you didn't request this, you can safely ignore this email.
+          このリクエストに心当たりがない場合は、このメールを無視してください。
         </p>
 
         <p>
-          This link will expire shortly.
+          このリンクには有効期限があります。
         </p>
       </div>
     `,

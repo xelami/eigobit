@@ -273,21 +273,6 @@ const authRoutes: FastifyPluginAsync = async (app) => {
       expiresAt,
     })
 
-    // const devResetUrl = `http://localhost:4321/reset-password?token=${token}`
-
-    /*
-     * DEVELOPMENT ONLY
-     *
-     * Replace this with your email provider later.
-     */
-    // app.log.info(
-    //   {
-    //     email: user.email,
-    //     devResetUrl,
-    //   },
-    //   "PASSWORD RESET URL",
-    // )
-
     const webUrl = process.env.WEB_URL
 
     if (!webUrl) {
@@ -298,61 +283,60 @@ const authRoutes: FastifyPluginAsync = async (app) => {
 
     await sendEmail({
       to: user.email!,
-      subject: "Reset your password",
+      subject: "パスワードの再設定",
       html: `
-    <!DOCTYPE html>
-    <html>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #111;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-          <h1 style="font-size: 24px; margin-bottom: 16px;">
-            Reset your password
-          </h1>
+        <!DOCTYPE html>
+        <html lang="ja">
+          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #111;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+              <h1 style="font-size: 24px; margin-bottom: 16px;">
+                パスワードを再設定してください
+              </h1>
 
-          <p>
-            We received a request to reset your password.
-          </p>
+              <p>
+                英語ビットのパスワード再設定のリクエストを受け付けました。
+              </p>
 
-          <p>
-            Click the button below to choose a new password.
-          </p>
+              <p>
+                下のボタンをクリックして、新しいパスワードを設定してください。
+              </p>
 
-          <p style="margin: 32px 0;">
-            <a
-              href="${resetUrl}"
-              style="
-                display: inline-block;
-                padding: 12px 20px;
-                background: #111;
-                color: #fff;
-                text-decoration: none;
-                border-radius: 8px;
-                font-weight: 600;
-              "
-            >
-              Reset password
-            </a>
-          </p>
+              <p style="margin: 32px 0;">
+                <a
+                  href="${resetUrl}"
+                  style="
+                    display: inline-block;
+                    padding: 12px 20px;
+                    background: #111;
+                    color: #fff;
+                    text-decoration: none;
+                    border-radius: 8px;
+                    font-weight: 600;
+                  "
+                >
+                  パスワードを再設定する
+                </a>
+              </p>
 
-          <p style="color: #666; font-size: 14px;">
-            This link will expire in 30 minutes.
-          </p>
+              <p style="color: #666; font-size: 14px;">
+                このリンクは30分後に有効期限が切れます。
+              </p>
 
-          <p style="color: #666; font-size: 14px;">
-            If you didn't request a password reset, you can safely ignore
-            this email.
-          </p>
+              <p style="color: #666; font-size: 14px;">
+                パスワード再設定をリクエストしていない場合は、このメールを無視してください。
+              </p>
 
-          <p style="color: #999; font-size: 12px; margin-top: 32px;">
-            If the button doesn't work, copy and paste this URL into your browser:
-          </p>
+              <p style="color: #999; font-size: 12px; margin-top: 32px;">
+                ボタンが機能しない場合は、以下のURLをコピーしてブラウザに貼り付けてください。
+              </p>
 
-          <p style="color: #999; font-size: 12px; word-break: break-all;">
-            ${resetUrl}
-          </p>
-        </div>
-      </body>
-    </html>
-  `,
+              <p style="color: #999; font-size: 12px; word-break: break-all;">
+                ${resetUrl}
+              </p>
+            </div>
+          </body>
+        </html>
+      `,
     })
 
     return {

@@ -1,14 +1,14 @@
 import { Resend } from "resend"
 
 const apiKey = process.env.RESEND_API_KEY
-const emailFrom = process.env.EMAIL_FROM
+const emailFrom = process.env.EMAIL_FROM_NO_REPLY
 
 if (!apiKey) {
   throw new Error("RESEND_API_KEY is not configured")
 }
 
 if (!emailFrom) {
-  throw new Error("EMAIL_FROM is not configured")
+  throw new Error("EMAIL_FROM_NO_REPLY is not configured")
 }
 
 const verifiedEmailFrom: string = emailFrom

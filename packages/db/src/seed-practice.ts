@@ -1,9 +1,22 @@
-import "dotenv/config"
+// import "dotenv/config"
 
-import { and, eq } from "drizzle-orm"
+// import { and, eq } from "drizzle-orm"
+
+// import { db } from "./index.js"
+// import { practiceQuestions, practiceQuestionOptions } from "./schema.js"
+console.log("🌱 seed-practice.ts started")
+
+console.log("DATABASE_URL exists:", !!process.env.DATABASE_URL)
+
+import { and, count, eq, sql } from "drizzle-orm"
 
 import { db } from "./index.js"
+
 import { practiceQuestions, practiceQuestionOptions } from "./schema.js"
+
+console.log("📦 imports loaded")
+
+console.log("🔌 about to query database...")
 
 type QuestionOption = [string, string, boolean]
 
@@ -881,6 +894,63 @@ const questions: Question[] = [
   },
 ]
 
+await db.transaction(async (tx) => {
+  const existingQuestions = await tx
+    .select({
+      id: practiceQuestions.id,
+    })
+    .from(practiceQuestions)
+    .where(
+      and(
+        eq(practiceQuestions.exam, "toeic"),
+        eq(practiceQuestions.part, "5"),
+        eq(practiceQuestions.difficulty, "beginner"),
+      ),
+    )
+
+  for (const question of existingQuestions) {
+    await tx
+      .delete(practiceQuestionOptions)
+      .where(eq(practiceQuestionOptions.questionId, question.id))
+
+    await tx
+      .delete(practiceQuestions)
+      .where(eq(practiceQuestions.id, question.id))
+  }
+
+  for (const item of questions) {
+    const [question] = await tx
+      .insert(practiceQuestions)
+      .values({
+        exam: "toeic",
+        part: "5",
+        questionType: "multiple_choice",
+        questionText: item.questionText,
+        explanation: item.explanation,
+        difficulty: item.difficulty,
+        vocabulary: item.vocabulary,
+      })
+      .returning({
+        id: practiceQuestions.id,
+      })
+
+    if (!question) {
+      throw new Error("Failed to create question")
+    }
+
+    await tx.insert(practiceQuestionOptions).values(
+      item.options.map(([label, text, isCorrect]) => ({
+        questionId: question.id,
+        optionLabel: label,
+        optionText: text,
+        isCorrect,
+      })),
+    )
+  }
+})
+
+console.log(`Seeded ${questions.length} TOEIC Part 5 beginner questions.`)
+
 /*
  * ============================================================================
  * REMOVE EXISTING BEGINNER TOEIC PART 5 QUESTIONS
@@ -891,63 +961,63 @@ const questions: Question[] = [
  * The question options are deleted first because they reference the questions.
  */
 
-const existingQuestions = await db
-  .select({
-    id: practiceQuestions.id,
-  })
-  .from(practiceQuestions)
-  .where(
-    and(
-      eq(practiceQuestions.exam, "toeic"),
-      eq(practiceQuestions.part, "5"),
-      eq(practiceQuestions.difficulty, "beginner"),
-    ),
-  )
+// const existingQuestions = await db
+//   .select({
+//     id: practiceQuestions.id,
+//   })
+//   .from(practiceQuestions)
+//   .where(
+//     and(
+//       eq(practiceQuestions.exam, "toeic"),
+//       eq(practiceQuestions.part, "5"),
+//       eq(practiceQuestions.difficulty, "beginner"),
+//     ),
+//   )
 
-for (const question of existingQuestions) {
-  await db
-    .delete(practiceQuestionOptions)
-    .where(eq(practiceQuestionOptions.questionId, question.id))
+// for (const question of existingQuestions) {
+//   await db
+//     .delete(practiceQuestionOptions)
+//     .where(eq(practiceQuestionOptions.questionId, question.id))
 
-  await db
-    .delete(practiceQuestions)
-    .where(eq(practiceQuestions.id, question.id))
-}
+//   await db
+//     .delete(practiceQuestions)
+//     .where(eq(practiceQuestions.id, question.id))
+// }
 
-/*
- * ============================================================================
- * INSERT QUESTIONS
- * ============================================================================
- */
+// /*
+//  * ============================================================================
+//  * INSERT QUESTIONS
+//  * ============================================================================
+//  */
 
-for (const item of questions) {
-  const [question] = await db
-    .insert(practiceQuestions)
-    .values({
-      exam: "toeic",
-      part: "5",
-      questionType: "multiple_choice",
-      questionText: item.questionText,
-      explanation: item.explanation,
-      difficulty: item.difficulty,
-      vocabulary: item.vocabulary,
-    })
-    .returning({
-      id: practiceQuestions.id,
-    })
+// for (const item of questions) {
+//   const [question] = await db
+//     .insert(practiceQuestions)
+//     .values({
+//       exam: "toeic",
+//       part: "5",
+//       questionType: "multiple_choice",
+//       questionText: item.questionText,
+//       explanation: item.explanation,
+//       difficulty: item.difficulty,
+//       vocabulary: item.vocabulary,
+//     })
+//     .returning({
+//       id: practiceQuestions.id,
+//     })
 
-  if (!question) {
-    throw new Error("Failed to create question")
-  }
+//   if (!question) {
+//     throw new Error("Failed to create question")
+//   }
 
-  await db.insert(practiceQuestionOptions).values(
-    item.options.map(([label, text, isCorrect]) => ({
-      questionId: question.id,
-      optionLabel: label,
-      optionText: text,
-      isCorrect,
-    })),
-  )
-}
+//   await db.insert(practiceQuestionOptions).values(
+//     item.options.map(([label, text, isCorrect]) => ({
+//       questionId: question.id,
+//       optionLabel: label,
+//       optionText: text,
+//       isCorrect,
+//     })),
+//   )
+// }
 
-console.log(`Seeded ${questions.length} TOEIC Part 5 beginner questions.`)
+// console.log(`Seeded ${questions.length} TOEIC Part 5 beginner questions.`)

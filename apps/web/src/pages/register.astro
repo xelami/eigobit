@@ -83,7 +83,7 @@ if (Astro.request.method === "POST") {
           アカウントを作成
         </h1>
 
-        <p class="mt-2 text-sm leading-6 text-[var(--muted)]">
+        <p class="mt-2 text-sm leading-6 text-(--muted)">
           TOEIC学習を、今日から始めましょう。
         </p>
       </div>
@@ -111,7 +111,7 @@ if (Astro.request.method === "POST") {
               class="mb-2 block text-sm font-semibold text-slate-900"
             >
               名前
-              <span class="font-normal text-[var(--muted)]">（任意）</span>
+              <span class="font-normal text-(--muted)">（任意）</span>
             </label>
 
             <input
@@ -121,7 +121,7 @@ if (Astro.request.method === "POST") {
               autocomplete="name"
               maxlength="100"
               placeholder="Alex"
-              class="w-full rounded-xl border border-[var(--border)] bg-white px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
+              class="w-full rounded-xl border border-(--border) bg-white px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-(--muted) focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
             />
           </div>
 
@@ -142,7 +142,7 @@ if (Astro.request.method === "POST") {
               autocomplete="email"
               required
               placeholder="you@example.com"
-              class="w-full rounded-xl border border-[var(--border)] bg-white px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
+              class="w-full rounded-xl border border-(--border) bg-white px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-(--muted) focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
             />
           </div>
 
@@ -165,10 +165,10 @@ if (Astro.request.method === "POST") {
               minlength="8"
               maxlength="128"
               placeholder="8文字以上"
-              class="w-full rounded-xl border border-[var(--border)] bg-white px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
+              class="w-full rounded-xl border border-(--border) bg-white px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-(--muted) focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
             />
 
-            <p class="mt-2 text-xs text-[var(--muted)]">
+            <p class="mt-2 text-xs text-(--muted)">
               8〜128文字で入力してください。
             </p>
           </div>
@@ -192,7 +192,7 @@ if (Astro.request.method === "POST") {
               minlength="8"
               maxlength="128"
               placeholder="もう一度入力してください"
-              class="w-full rounded-xl border border-[var(--border)] bg-white px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
+              class="w-full rounded-xl border border-(--border) bg-white px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-(--muted) focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
             />
           </div>
 
@@ -200,7 +200,7 @@ if (Astro.request.method === "POST") {
 
           <button
             type="submit"
-            class="w-full rounded-xl bg-[var(--primary)] px-4 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:opacity-90 active:translate-y-0"
+            class="w-full rounded-xl bg-(--primary) px-4 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:opacity-90 active:translate-y-0"
           >
             アカウントを作成 →
           </button>
@@ -209,11 +209,11 @@ if (Astro.request.method === "POST") {
         <!-- LOGIN -->
 
         <div class="mt-6 border-t pt-6 text-center">
-          <p class="text-sm text-[var(--muted)]">
+          <p class="text-sm text-(--muted)">
             すでにアカウントをお持ちですか？
             <a
               href="/login"
-              class="font-semibold text-[var(--primary)] hover:underline"
+              class="font-semibold text-(--primary) hover:underline"
             >
               ログイン
             </a>

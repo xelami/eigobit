@@ -10,7 +10,7 @@ import AppLayout from "../layouts/AppLayout.astro"
           <div
             class="inline-flex items-center gap-2 rounded-full border bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-600"
           >
-            <span class="h-2 w-2 rounded-full bg-[var(--primary)]"></span>
+            <span class="h-2 w-2 rounded-full bg-(--primary)"></span>
             TOEIC・英語学習プラットフォーム
           </div>
 
@@ -18,12 +18,10 @@ import AppLayout from "../layouts/AppLayout.astro"
             class="mt-7 text-5xl font-bold tracking-tight text-slate-950 sm:text-7xl"
           >
             英語を、
-            <span class="text-[var(--primary)]">もっと効率的に。</span>
+            <span class="text-(--primary)">もっと効率的に。</span>
           </h1>
 
-          <p
-            class="mt-7 max-w-2xl text-lg leading-8 text-[var(--muted)] sm:text-xl"
-          >
+          <p class="mt-7 max-w-2xl text-lg leading-8 text-(--muted) sm:text-xl">
             英語ビットは、TOEIC対策を中心とした英語学習プラットフォーム。
             自分の目標に合わせて練習し、学習の積み重ねを記録できます。
           </p>
@@ -31,14 +29,14 @@ import AppLayout from "../layouts/AppLayout.astro"
           <div class="mt-9 flex flex-col gap-3 sm:flex-row">
             <a
               href="/register"
-              class="rounded-xl bg-[var(--primary)] px-6 py-3.5 text-center text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:opacity-90"
+              class="rounded-xl bg-(--primary) px-6 py-3.5 text-center text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:opacity-90"
             >
               無料で始める →
             </a>
 
             <a
               href="/login"
-              class="rounded-xl border border-[var(--border)] bg-white px-6 py-3.5 text-center text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              class="rounded-xl border border-(--border) bg-white px-6 py-3.5 text-center text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
             >
               ログイン
             </a>
@@ -66,15 +64,13 @@ import AppLayout from "../layouts/AppLayout.astro"
     <section class="bg-slate-50">
       <div class="mx-auto max-w-7xl px-6 py-20 sm:py-24">
         <div class="max-w-2xl">
-          <p class="text-sm font-semibold text-[var(--primary)]">
-            英語ビットの特徴
-          </p>
+          <p class="text-sm font-semibold text-(--primary)">英語ビットの特徴</p>
 
           <h2 class="mt-3 text-3xl font-bold tracking-tight text-slate-950">
             必要なものを、シンプルに。
           </h2>
 
-          <p class="mt-4 leading-7 text-[var(--muted)]">
+          <p class="mt-4 leading-7 text-(--muted)">
             複雑な機能を詰め込むのではなく、英語学習を続けやすい環境を目指しています。
           </p>
         </div>
@@ -91,7 +87,7 @@ import AppLayout from "../layouts/AppLayout.astro"
               実践的な問題演習
             </h3>
 
-            <p class="mt-2 text-sm leading-6 text-[var(--muted)]">
+            <p class="mt-2 text-sm leading-6 text-(--muted)">
               TOEICの問題に取り組みながら、Partごとの理解と正答率を高めていきます。
             </p>
           </div>
@@ -107,7 +103,7 @@ import AppLayout from "../layouts/AppLayout.astro"
               学習の進捗を記録
             </h3>
 
-            <p class="mt-2 text-sm leading-6 text-[var(--muted)]">
+            <p class="mt-2 text-sm leading-6 text-(--muted)">
               解答数や正答率、学習履歴を確認して、自分の成長を振り返れます。
             </p>
           </div>
@@ -123,7 +119,7 @@ import AppLayout from "../layouts/AppLayout.astro"
               自分の目標に合わせる
             </h3>
 
-            <p class="mt-2 text-sm leading-6 text-[var(--muted)]">
+            <p class="mt-2 text-sm leading-6 text-(--muted)">
               目標スコアや学習時間を設定して、自分のペースで学習を続けられます。
             </p>
           </div>
@@ -136,7 +132,7 @@ import AppLayout from "../layouts/AppLayout.astro"
     <section class="bg-white">
       <div class="mx-auto max-w-7xl px-6 py-20 sm:py-24">
         <div class="text-center">
-          <p class="text-sm font-semibold text-[var(--primary)]">はじめ方</p>
+          <p class="text-sm font-semibold text-(--primary)">はじめ方</p>
 
           <h2 class="mt-3 text-3xl font-bold tracking-tight text-slate-950">
             3ステップで学習スタート
@@ -153,7 +149,7 @@ import AppLayout from "../layouts/AppLayout.astro"
 
             <h3 class="mt-5 font-bold text-slate-950">アカウントを作成</h3>
 
-            <p class="mt-2 text-sm leading-6 text-[var(--muted)]">
+            <p class="mt-2 text-sm leading-6 text-(--muted)">
               無料でアカウントを作成します。
             </p>
           </div>
@@ -167,7 +163,7 @@ import AppLayout from "../layouts/AppLayout.astro"
 
             <h3 class="mt-5 font-bold text-slate-950">目標を設定</h3>
 
-            <p class="mt-2 text-sm leading-6 text-[var(--muted)]">
+            <p class="mt-2 text-sm leading-6 text-(--muted)">
               目標スコアや学習時間を設定します。
             </p>
           </div>
@@ -181,7 +177,7 @@ import AppLayout from "../layouts/AppLayout.astro"
 
             <h3 class="mt-5 font-bold text-slate-950">問題に挑戦</h3>
 
-            <p class="mt-2 text-sm leading-6 text-[var(--muted)]">
+            <p class="mt-2 text-sm leading-6 text-(--muted)">
               毎日の練習を積み重ねて、目標達成を目指します。
             </p>
           </div>
