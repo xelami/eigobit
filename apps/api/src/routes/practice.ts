@@ -608,6 +608,8 @@ const practiceRoutes: FastifyPluginAsync = async (app) => {
    */
 
   app.post("/sessions/:sessionId/answers", async (request, reply) => {
+    const start = performance.now()
+
     const user = await getAuthenticatedUser(request)
 
     if (!user) {
@@ -615,6 +617,12 @@ const practiceRoutes: FastifyPluginAsync = async (app) => {
         error: "Unauthorized",
       })
     }
+
+    console.log(
+      "AUTH:",
+
+      Math.round(performance.now() - start),
+    )
 
     const { sessionId } = request.params as {
       sessionId: string
@@ -630,6 +638,8 @@ const practiceRoutes: FastifyPluginAsync = async (app) => {
         error: "questionId and optionId are required",
       })
     }
+
+    const sessionStart = performance.now()
 
     const [session] = await db
       .select({
@@ -658,6 +668,14 @@ const practiceRoutes: FastifyPluginAsync = async (app) => {
       })
     }
 
+    console.log(
+      "SESSION QUERY:",
+
+      Math.round(performance.now() - sessionStart),
+    )
+
+    const sessionQuestionsStart = performance.now()
+
     const [sessionQuestion] = await db
       .select({
         id: practiceSessionQuestions.id,
@@ -677,6 +695,14 @@ const practiceRoutes: FastifyPluginAsync = async (app) => {
         error: "Question is not part of this session",
       })
     }
+
+    console.log(
+      "SESSION QUERY:",
+
+      Math.round(performance.now() - sessionQuestionsStart),
+    )
+
+    const selectedOptionsStart = performance.now()
 
     const [selectedOption] = await db
       .select({
@@ -702,6 +728,12 @@ const practiceRoutes: FastifyPluginAsync = async (app) => {
         error: "Invalid option for this question",
       })
     }
+
+    console.log(
+      "SESSION QUERY:",
+
+      Math.round(performance.now() - selectedOptionsStart),
+    )
 
     const correctOption = (
       await db
