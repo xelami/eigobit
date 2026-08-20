@@ -34,6 +34,8 @@ const dashboardRoutes: FastifyPluginAsync = async (app) => {
      * ==========================================================================
      */
 
+    const start = performance.now()
+
     const [
       profileResult,
       learningGoalsResult,
@@ -115,6 +117,8 @@ const dashboardRoutes: FastifyPluginAsync = async (app) => {
 
       getPracticeSummary(userId),
     ])
+
+    console.log(`Dashboard DB: ${Math.round(performance.now() - start)}ms`)
 
     const profile = profileResult[0] ?? null
 

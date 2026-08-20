@@ -73,11 +73,15 @@ type DashboardData = {
 
 let dashboard: DashboardData
 
+const start = performance.now()
+
 try {
   dashboard = await apiFetch<DashboardData>("/api/v1/dashboard", Astro)
 } catch {
   return Astro.redirect("/login")
 }
+
+console.log(`Dashboard API: ${Math.round(performance.now() - start)}ms`)
 
 const user = dashboard.user
 const onboarding = dashboard.onboarding
