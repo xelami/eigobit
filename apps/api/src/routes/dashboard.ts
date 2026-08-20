@@ -33,7 +33,6 @@ const dashboardRoutes: FastifyPluginAsync = async (app) => {
      * Independent database queries run concurrently.
      * ==========================================================================
      */
-
     const start = performance.now()
 
     const [
