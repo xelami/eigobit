@@ -3,119 +3,212 @@ import AppLayout from "../layouts/AppLayout.astro"
 import { requireAuth } from "../lib/require-auth"
 import { apiFetch } from "../lib/api"
 
+// const user = await requireAuth(Astro)
+
+// if (user instanceof Response) {
+//   return user
+// }
+
+// /*
+//  * ============================================================================
+//  * ONBOARDING
+//  * ============================================================================
+//  */
+
+// let onboarding: {
+//   profile: {
+//     englishLevel: string
+//     studyTime: string
+//     onboardingCompleted: string | null
+//   } | null
+//   learningGoals: string[]
+//   interests: string[]
+//   examGoals: {
+//     exam: string
+//     toeicTargetScore: string | null
+//     eikenTargetGrade: string | null
+//   }[]
+// } | null = null
+
+// try {
+//   onboarding = await apiFetch<{
+//     profile: {
+//       englishLevel: string
+//       studyTime: string
+//       onboardingCompleted: string | null
+//     } | null
+//     learningGoals: string[]
+//     interests: string[]
+//     examGoals: {
+//       exam: string
+//       toeicTargetScore: string | null
+//       eikenTargetGrade: string | null
+//     }[]
+//   }>("/api/v1/onboarding", Astro)
+
+//   // Force onboarding if the user has not completed it.
+//   if (!onboarding?.profile?.onboardingCompleted) {
+//     return Astro.redirect("/onboarding")
+//   }
+// } catch {
+//   // If onboarding cannot be fetched, don't force onboarding.
+// }
+
+// /*
+//  * ============================================================================
+//  * DASHBOARD STATS
+//  * ============================================================================
+//  */
+
+// let stats: {
+//   practice: {
+//     totalSessions: number
+//     completedSessions: number
+//     answeredQuestions: number
+//     correctAnswers: number
+//     accuracy: number
+//   }
+//   today: {
+//     questionsAnswered: number
+//   }
+//   vocabulary: {
+//     count: number
+//   }
+// } | null = null
+
+// try {
+//   stats = await apiFetch<{
+//     practice: {
+//       totalSessions: number
+//       completedSessions: number
+//       answeredQuestions: number
+//       correctAnswers: number
+//       accuracy: number
+//     }
+//     today: {
+//       questionsAnswered: number
+//     }
+//     vocabulary: {
+//       count: number
+//     }
+//   }>("/api/v1/practice/stats", Astro)
+// } catch {
+//   // Continue with empty stats if the API is unavailable.
+// }
+
+// let practiceSummary = null
+
+// try {
+//   practiceSummary = await apiFetch<{
+//     completedSessions: number
+//     totalQuestions: number
+//     totalCorrectAnswers: number
+//     averageScore: number
+//     recentSessions: {
+//       id: string
+//       exam: string
+//       part: string
+//       totalQuestions: number
+//       correctAnswers: number
+//       completedAt: string | null
+//       createdAt: string
+//     }[]
+//   }>("/api/v1/practice/summary", Astro)
+// } catch {
+//   // Continue without practice summary.
+// }
+
 const user = await requireAuth(Astro)
 
 if (user instanceof Response) {
   return user
 }
 
-/*
- * ============================================================================
- * ONBOARDING
- * ============================================================================
- */
+const [onboardingResult, statsResult, practiceSummaryResult] =
+  await Promise.allSettled([
+    apiFetch<{
+      profile: {
+        englishLevel: string
 
-let onboarding: {
-  profile: {
-    englishLevel: string
-    studyTime: string
-    onboardingCompleted: string | null
-  } | null
-  learningGoals: string[]
-  interests: string[]
-  examGoals: {
-    exam: string
-    toeicTargetScore: string | null
-    eikenTargetGrade: string | null
-  }[]
-} | null = null
+        studyTime: string
 
-try {
-  onboarding = await apiFetch<{
-    profile: {
-      englishLevel: string
-      studyTime: string
-      onboardingCompleted: string | null
-    } | null
-    learningGoals: string[]
-    interests: string[]
-    examGoals: {
-      exam: string
-      toeicTargetScore: string | null
-      eikenTargetGrade: string | null
-    }[]
-  }>("/api/v1/onboarding", Astro)
+        onboardingCompleted: string | null
+      } | null
 
-  // Force onboarding if the user has not completed it.
-  if (!onboarding?.profile?.onboardingCompleted) {
-    return Astro.redirect("/onboarding")
-  }
-} catch {
-  // If onboarding cannot be fetched, don't force onboarding.
-}
+      learningGoals: string[]
 
-/*
- * ============================================================================
- * DASHBOARD STATS
- * ============================================================================
- */
+      interests: string[]
 
-let stats: {
-  practice: {
-    totalSessions: number
-    completedSessions: number
-    answeredQuestions: number
-    correctAnswers: number
-    accuracy: number
-  }
-  today: {
-    questionsAnswered: number
-  }
-  vocabulary: {
-    count: number
-  }
-} | null = null
+      examGoals: {
+        exam: string
 
-try {
-  stats = await apiFetch<{
-    practice: {
-      totalSessions: number
+        toeicTargetScore: string | null
+
+        eikenTargetGrade: string | null
+      }[]
+    }>("/api/v1/onboarding", Astro),
+
+    apiFetch<{
+      practice: {
+        totalSessions: number
+
+        completedSessions: number
+
+        answeredQuestions: number
+
+        correctAnswers: number
+
+        accuracy: number
+      }
+
+      today: {
+        questionsAnswered: number
+      }
+
+      vocabulary: {
+        count: number
+      }
+    }>("/api/v1/practice/stats", Astro),
+
+    apiFetch<{
       completedSessions: number
-      answeredQuestions: number
-      correctAnswers: number
-      accuracy: number
-    }
-    today: {
-      questionsAnswered: number
-    }
-    vocabulary: {
-      count: number
-    }
-  }>("/api/v1/practice/stats", Astro)
-} catch {
-  // Continue with empty stats if the API is unavailable.
-}
 
-let practiceSummary = null
-
-try {
-  practiceSummary = await apiFetch<{
-    completedSessions: number
-    totalQuestions: number
-    totalCorrectAnswers: number
-    averageScore: number
-    recentSessions: {
-      id: string
-      exam: string
-      part: string
       totalQuestions: number
-      correctAnswers: number
-      completedAt: string | null
-      createdAt: string
-    }[]
-  }>("/api/v1/practice/summary", Astro)
-} catch {
-  // Continue without practice summary.
+
+      totalCorrectAnswers: number
+
+      averageScore: number
+
+      recentSessions: {
+        id: string
+
+        exam: string
+
+        part: string
+
+        totalQuestions: number
+
+        correctAnswers: number
+
+        completedAt: string | null
+
+        createdAt: string
+      }[]
+    }>("/api/v1/practice/summary", Astro),
+  ])
+
+const onboarding =
+  onboardingResult.status === "fulfilled" ? onboardingResult.value : null
+
+const stats = statsResult.status === "fulfilled" ? statsResult.value : null
+
+const practiceSummary =
+  practiceSummaryResult.status === "fulfilled"
+    ? practiceSummaryResult.value
+    : null
+
+if (!onboarding?.profile?.onboardingCompleted) {
+  return Astro.redirect("/onboarding")
 }
 
 const completedPracticeSessions = practiceSummary?.completedSessions ?? 0
