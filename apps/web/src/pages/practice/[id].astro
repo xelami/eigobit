@@ -88,29 +88,27 @@ const isPart7 = session.part === "7"
     }).replace(/</g, "\\u003c")}
   </script>
 
-  <script>
+  <script define:vars={{ questions, passages, sessionId: id, isPart7 }}>
     import { initPart5And6Practice } from "../../lib/practice/part5-6"
     import { initPart7 } from "../../lib/practice/part7"
 
-    const dataElement = document.querySelector("#practice-data")
+    console.log("[Practice] client script loaded")
+    console.log("[Practice] isPart7:", isPart7)
+    console.log("[Practice] questions:", questions)
+    console.log("[Practice] sessionId:", sessionId)
 
-    if (dataElement) {
-      const data = JSON.parse(dataElement.textContent ?? "{}")
-if (data.isPart7) {
-
-  initPart7({
-    questions: data.questions,
-    passages: data.passages,
-    sessionId: data.sessionId,
-  })
-} else {
-  initPart5And6Practice(
-    data.questions,
-    data.passages,
-    data.sessionId,
-  )
-
-}
+    if (isPart7) {
+      initPart7({
+        questions,
+        passages,
+        sessionId,
+      })
+    } else {
+      initPart5And6Practice(
+        questions,
+        passages,
+        sessionId,
+      )
     }
   </script>
   <!-- <script define:vars={{ questions, passages, sessionId: id, isPart7 }}>

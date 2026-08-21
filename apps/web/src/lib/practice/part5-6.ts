@@ -27,6 +27,20 @@ export function initPart5And6Practice(
   const passageTitle = document.querySelector<HTMLElement>("#passage-title")
   const passageText = document.querySelector<HTMLElement>("#passage-text")
 
+  if (!optionsContainer) {
+    console.error("[Part5/6] #options was not found")
+
+    return
+  }
+
+  if (!nextButton) {
+    console.error("[Part5/6] #next-button was not found")
+
+    return
+  }
+
+  console.log("[Part5/6] initialized")
+
   function addLoadingSpinner(button: HTMLButtonElement) {
     if (button.querySelector(".answer-loading-spinner")) {
       return
@@ -267,7 +281,14 @@ export function initPart5And6Practice(
       button.appendChild(label)
       button.appendChild(text)
 
+      // button.addEventListener("click", () => {
+      //   submitAnswer(option.id)
+      // })
       button.addEventListener("click", () => {
+        console.log("[Part5/6] OPTION CLICKED", {
+          questionId: question.id,
+          optionId: option.id,
+        })
         submitAnswer(option.id)
       })
 
