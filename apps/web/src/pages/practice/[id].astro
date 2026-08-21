@@ -320,6 +320,44 @@ const isPart7 = session.part === "7"
     const questionNumber = document.querySelector("#question-number")
     const progressBar = document.querySelector("#progress-bar")
 
+    function setButtonLoading(button) {
+      button.classList.add(
+        "opacity-70",
+        "cursor-wait",
+      )
+
+      const label = button.querySelector("span:last-child")
+
+      if (label) {
+        label.innerHTML = `
+          <span class="inline-flex items-center gap-2">
+            <svg
+              class="h-5 w-5 animate-spin"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <circle
+                class="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                stroke-width="4"
+              />
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+              />
+            </svg>
+
+            <span>確認中...</span>
+          </span>
+        `
+      }
+    }
+
     /*
      * ========================================================================
      * PART 7 STATE
@@ -760,11 +798,15 @@ const isPart7 = session.part === "7"
       optionsContainer,
       card,
     ) {
+      if (card.dataset.answerLoading === "true") {
+        return
+      }
+
       if (card.dataset.answered === "true") {
         return
       }
 
-      card.dataset.answered = "true"
+      card.dataset.answerLoading = "true"
 
       const buttons =
         optionsContainer.querySelectorAll(
@@ -774,6 +816,23 @@ const isPart7 = session.part === "7"
       buttons.forEach((button) => {
         button.disabled = true
       })
+
+      setButtonLoading(selectedButton)
+
+      const feedback =
+        card.querySelector(".part7-feedback")
+
+      const feedbackTitle =
+        feedback?.querySelector("p:first-child")
+
+      const feedbackExplanation =
+        feedback?.querySelector("p:last-child")
+
+      showCheckingFeedback(
+        feedback,
+        feedbackTitle,
+        feedbackExplanation,
+      )
 
       try {
         const response = await fetch(
@@ -798,6 +857,37 @@ const isPart7 = session.part === "7"
           )
         }
 
+        card.dataset.answerLoading = "false"
+        card.dataset.answered = "true"
+
+        /*
+        * Restore the selected button text.
+        */
+
+        const selectedOption =
+          question.options.find(
+            (option) => option.id === optionId,
+          )
+
+        selectedButton.classList.remove(
+          "opacity-70",
+          "cursor-wait",
+        )
+
+        const selectedLabel =
+          selectedButton.querySelector(
+            "span:last-child",
+          )
+
+        if (selectedLabel && selectedOption) {
+          selectedLabel.textContent =
+            selectedOption.text
+        }
+
+        /*
+        * Mark selected answer.
+        */
+
         selectedButton.classList.remove(
           "hover:border-gray-400",
           "hover:bg-gray-50",
@@ -814,6 +904,10 @@ const isPart7 = session.part === "7"
             "bg-red-50",
           )
         }
+
+        /*
+        * Mark correct answer if necessary.
+        */
 
         if (!data.correct && data.correctOptionId) {
           const correctButton =
@@ -834,16 +928,16 @@ const isPart7 = session.part === "7"
           }
         }
 
-        const feedback =
-          card.querySelector(".part7-feedback")
-
-        const feedbackTitle =
-          feedback?.querySelector("p:first-child")
-
-        const feedbackExplanation =
-          feedback?.querySelector("p:last-child")
+        /*
+        * Feedback.
+        */
 
         if (feedback) {
+          feedback.classList.remove(
+            "border-gray-200",
+            "bg-gray-50",
+          )
+
           feedback.classList.remove("hidden")
 
           if (data.correct) {
@@ -861,13 +955,19 @@ const isPart7 = session.part === "7"
 
         if (feedbackTitle) {
           feedbackTitle.textContent =
-            data.correct ? "Correct!" : "Incorrect"
+            data.correct
+              ? "Correct!"
+              : "Incorrect"
         }
 
         if (feedbackExplanation) {
           feedbackExplanation.textContent =
             data.explanation ?? ""
         }
+
+        /*
+        * Vocabulary.
+        */
 
         const vocabulary =
           card.querySelector(".part7-vocabulary")
@@ -883,23 +983,52 @@ const isPart7 = session.part === "7"
           error,
         )
 
+        card.dataset.answerLoading = "false"
         card.dataset.answered = "false"
+
+        /*
+        * Re-enable answers.
+        */
 
         buttons.forEach((button) => {
           button.disabled = false
+          button.classList.remove(
+            "opacity-70",
+            "cursor-wait",
+          )
         })
 
-        const feedback =
-          card.querySelector(".part7-feedback")
+        /*
+        * Restore selected button text.
+        */
 
-        const feedbackTitle =
-          feedback?.querySelector("p:first-child")
+        const selectedOption =
+          question.options.find(
+            (option) => option.id === optionId,
+          )
 
-        const feedbackExplanation =
-          feedback?.querySelector("p:last-child")
+        const selectedLabel =
+          selectedButton.querySelector(
+            "span:last-child",
+          )
+
+        if (selectedLabel && selectedOption) {
+          selectedLabel.textContent =
+            selectedOption.text
+        }
+
+        /*
+        * Error feedback.
+        */
 
         if (feedback) {
+          feedback.classList.remove(
+            "border-gray-200",
+            "bg-gray-50",
+          )
+
           feedback.classList.remove("hidden")
+
           feedback.classList.add(
             "border-red-200",
             "bg-red-50",
@@ -1453,173 +1582,271 @@ const isPart7 = session.part === "7"
         })
       }
 
-      async function submitAnswer(optionId) {
-        if (answered) {
-          return
-        }
+    async function submitAnswer(optionId) {
+      if (answered) {
+        return
+      }
 
-        const question =
-          questionData[currentIndex]
+      const question =
+        questionData[currentIndex]
 
-        if (!question) {
-          return
-        }
+      if (!question) {
+        return
+      }
 
-        answered = true
+      answered = true
 
-        const buttons =
-          optionsContainer?.querySelectorAll(
-            ".option-button",
+      const buttons =
+        optionsContainer?.querySelectorAll(
+          ".option-button",
+        )
+
+      buttons?.forEach((button) => {
+        button.disabled = true
+      })
+
+      const selectedButton =
+        optionsContainer?.querySelector(
+          `[data-option-id="${optionId}"]`,
+        )
+
+      if (
+        selectedButton instanceof HTMLButtonElement
+      ) {
+        setButtonLoading(selectedButton)
+      }
+
+      /*
+      * Immediately show feedback while the API is working.
+      */
+
+      showCheckingFeedback(
+        feedback,
+        feedbackTitle,
+        feedbackExplanation,
+      )
+
+      try {
+        const response =
+          await fetch(
+            `/api/practice/sessions/${sessionId}/answers`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+              body: JSON.stringify({
+                questionId: question.id,
+                optionId,
+              }),
+            },
           )
 
-        buttons?.forEach((button) => {
-          button.disabled = true
-        })
+        const data =
+          await response.json()
 
-        try {
-          const response =
-            await fetch(
-              `/api/practice/sessions/${sessionId}/answers`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type":
-                    "application/json",
-                },
-                body: JSON.stringify({
-                  questionId: question.id,
-                  optionId,
-                }),
-              },
+        if (!response.ok) {
+          throw new Error(
+            data?.error ??
+              "Failed to submit answer.",
+          )
+        }
+
+        /*
+        * Restore selected button.
+        */
+
+        if (
+          selectedButton instanceof
+          HTMLButtonElement
+        ) {
+          selectedButton.classList.remove(
+            "opacity-70",
+            "cursor-wait",
+            "hover:border-gray-400",
+            "hover:bg-gray-50",
+          )
+
+          const selectedOption =
+            question.options.find(
+              (option) =>
+                option.id === optionId,
             )
 
-          const data =
-            await response.json()
-
-          if (!response.ok) {
-            throw new Error(
-              data?.error ??
-                "Failed to submit answer.",
+          const label =
+            selectedButton.querySelector(
+              "span:last-child",
             )
+
+          if (label && selectedOption) {
+            label.textContent =
+              selectedOption.text
           }
 
-          const selectedButton =
+          if (data.correct) {
+            selectedButton.classList.add(
+              "border-green-500",
+              "bg-green-50",
+            )
+          } else {
+            selectedButton.classList.add(
+              "border-red-500",
+              "bg-red-50",
+            )
+          }
+        }
+
+        /*
+        * Mark correct answer.
+        */
+
+        if (
+          !data.correct &&
+          data.correctOptionId
+        ) {
+          const correctButton =
             optionsContainer?.querySelector(
-              `[data-option-id="${optionId}"]`,
+              `[data-option-id="${data.correctOptionId}"]`,
             )
 
-          if (selectedButton) {
-            selectedButton.classList.remove(
+          if (correctButton) {
+            correctButton.classList.remove(
               "hover:border-gray-400",
               "hover:bg-gray-50",
             )
 
-            if (data.correct) {
-              selectedButton.classList.add(
-                "border-green-500",
-                "bg-green-50",
-              )
-            } else {
-              selectedButton.classList.add(
-                "border-red-500",
-                "bg-red-50",
-              )
-            }
-          }
-
-          if (
-            !data.correct &&
-            data.correctOptionId
-          ) {
-            const correctButton =
-              optionsContainer?.querySelector(
-                `[data-option-id="${data.correctOptionId}"]`,
-              )
-
-            if (correctButton) {
-              correctButton.classList.remove(
-                "hover:border-gray-400",
-                "hover:bg-gray-50",
-              )
-
-              correctButton.classList.add(
-                "border-green-500",
-                "bg-green-50",
-              )
-            }
-          }
-
-          if (feedback) {
-            feedback.classList.remove(
-              "hidden",
+            correctButton.classList.add(
+              "border-green-500",
+              "bg-green-50",
             )
-
-            if (data.correct) {
-              feedback.classList.add(
-                "border-green-200",
-                "bg-green-50",
-              )
-            } else {
-              feedback.classList.add(
-                "border-red-200",
-                "bg-red-50",
-              )
-            }
           }
+        }
 
-          if (feedbackTitle) {
-            feedbackTitle.textContent =
-              data.correct
-                ? "Correct!"
-                : "Incorrect"
-          }
+        /*
+        * Replace loading feedback with result.
+        */
 
-          if (feedbackExplanation) {
-            feedbackExplanation.textContent =
-              data.explanation ?? ""
-          }
+        if (feedback) {
+          feedback.classList.remove(
+            "border-gray-200",
+            "bg-gray-50",
+          )
 
-          renderVocabulary()
+          feedback.classList.remove(
+            "hidden",
+          )
 
-          if (nextButton) {
-            nextButton.disabled = false
-          }
-        } catch (error) {
-          answered = false
-
-          buttons?.forEach((button) => {
-            button.disabled = false
-          })
-
-          if (feedback) {
-            feedback.classList.remove(
-              "hidden",
-            )
-
-            feedback.classList.remove(
+          if (data.correct) {
+            feedback.classList.add(
               "border-green-200",
               "bg-green-50",
             )
-
+          } else {
             feedback.classList.add(
               "border-red-200",
               "bg-red-50",
             )
           }
+        }
 
-          if (feedbackTitle) {
-            feedbackTitle.textContent =
-              "Something went wrong"
-          }
+        if (feedbackTitle) {
+          feedbackTitle.textContent =
+            data.correct
+              ? "Correct!"
+              : "Incorrect"
+        }
 
-          if (feedbackExplanation) {
-            feedbackExplanation.textContent =
-              error instanceof Error
-                ? error.message
-                : "Failed to submit answer."
+        if (feedbackExplanation) {
+          feedbackExplanation.textContent =
+            data.explanation ?? ""
+        }
+
+        renderVocabulary()
+
+        if (nextButton) {
+          nextButton.disabled = false
+        }
+      } catch (error) {
+        console.error(
+          "Failed to submit answer:",
+          error,
+        )
+
+        answered = false
+
+        /*
+        * Re-enable buttons.
+        */
+
+        buttons?.forEach((button) => {
+          button.disabled = false
+          button.classList.remove(
+            "opacity-70",
+            "cursor-wait",
+          )
+        })
+
+        /*
+        * Restore selected button text.
+        */
+
+        if (
+          selectedButton instanceof
+          HTMLButtonElement
+        ) {
+          const selectedOption =
+            question.options.find(
+              (option) =>
+                option.id === optionId,
+            )
+
+          const label =
+            selectedButton.querySelector(
+              "span:last-child",
+            )
+
+          if (label && selectedOption) {
+            label.textContent =
+              selectedOption.text
           }
         }
+
+        /*
+        * Error feedback.
+        */
+
+        if (feedback) {
+          feedback.classList.remove(
+            "border-gray-200",
+            "bg-gray-50",
+            "border-green-200",
+            "bg-green-50",
+          )
+
+          feedback.classList.remove(
+            "hidden",
+          )
+
+          feedback.classList.add(
+            "border-red-200",
+            "bg-red-50",
+          )
+        }
+
+        if (feedbackTitle) {
+          feedbackTitle.textContent =
+            "Something went wrong"
+        }
+
+        if (feedbackExplanation) {
+          feedbackExplanation.textContent =
+            error instanceof Error
+              ? error.message
+              : "Failed to submit answer."
+        }
       }
+    }
 
       nextButton?.addEventListener(
         "click",
