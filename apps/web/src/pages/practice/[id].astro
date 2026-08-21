@@ -1,7 +1,12 @@
 ---
 import AppLayout from "../../layouts/AppLayout.astro"
 import { requireAuth } from "../../lib/require-auth"
-import { apiFetch } from "../../lib/api"
+import { getPracticePassages, getPracticeSession } from "../../lib/practice/api"
+import type { PracticeQuestion, PracticePassage, PracticeSession } from "../../lib/practice/types"
+import PracticeHeader from "../../components/practice/PracticeHeader.astro"
+import ProgressBar from "../../components/practice/ProgressBar.astro"
+import PassageCard from "../../components/practice/PassageCard.astro"
+import QuestionCard from "../../components/practice/QuestionCard.astro"
 
 const user = await requireAuth(Astro)
 
@@ -15,87 +20,25 @@ if (!id) {
   return Astro.redirect("/dashboard")
 }
 
-type VocabularyItem = {
-  word: string
-  meaning: string
-  exampleSentence: string
-  saved: boolean
-}
-
-type PracticeQuestion = {
-  id: string
-  questionNumber: number
-  passageId: string | null
-  questionText: string
-  questionType: string
-  explanation: string | null
-  difficulty: string | null
-  vocabulary: VocabularyItem[]
-  selectedOptionId: string | null
-  isCorrect: boolean | null
-  options: {
-    id: string
-    label: string
-    text: string
-  }[]
-}
-
-type PracticeSession = {
-  id: string
-  exam: string
-  part: string
-  totalQuestions: number
-  correctAnswers: number
-  completedAt: string | null
-}
-
-type PracticePassage = {
-  id: string
-  exam: string
-  part: string
-  title: string | null
-  passageText: string
-  difficulty: string | null
-  questions: {
-    id: string
-    questionNumber: number | null
-    questionType: string
-    questionText: string
-    explanation: string | null
-    difficulty: string | null
-    options: {
-      id: string
-      label: string
-      text: string
-    }[]
-  }[]
-}
-
 let session: PracticeSession | null = null
 let questions: PracticeQuestion[] = []
 let passages: PracticePassage[] = []
 
 try {
-  const data = await apiFetch<{
-    session: PracticeSession
-    questions: PracticeQuestion[]
-  }>(`/api/v1/practice/sessions/${id}`, Astro)
 
+  const data = await getPracticeSession(id, Astro)
   session = data.session
   questions = data.questions
 
   if (session.part === "6" || session.part === "7") {
-    const passageData = await apiFetch<{
-      passages: PracticePassage[]
-    }>(
-      `/api/v1/practice/passages?exam=${encodeURIComponent(
-        session.exam,
-      )}&part=${encodeURIComponent(session.part)}&limit=20`,
+    const passageData = await getPracticePassages(
+      session.exam,
+      session.part,
       Astro,
     )
-
     passages = passageData.passages
   }
+
 } catch {
   return Astro.redirect("/dashboard")
 }
@@ -110,64 +53,14 @@ const isPart7 = session.part === "7"
 <AppLayout title={`TOEIC Part ${session.part}`} user={user}>
   <main class="mx-auto max-w-5xl px-6 py-10">
 
-    <!-- ================================================================ -->
-    <!-- HEADER -->
-    <!-- ================================================================ -->
+  <PracticeHeader
+    exam={session.exam}
+    part={session.part}
+    isPart7={isPart7}
+    questionCount={questions.length}
+  />
 
-    <div class="mb-8 flex items-center justify-between gap-4">
-      <div>
-        <a
-          href="/dashboard"
-          class="text-sm font-medium text-gray-500 hover:text-gray-900"
-        >
-          ← ホーム
-        </a>
-
-        <div class="mt-3 flex items-center gap-3">
-          <span
-            class="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-gray-600"
-          >
-            {session.exam}
-          </span>
-
-          <span class="text-sm text-gray-500">
-            パート {session.part}
-          </span>
-        </div>
-
-        <h1 class="mt-2 text-2xl font-bold tracking-tight">
-          {isPart7 ? "Reading Comprehension" : "Practice"}
-        </h1>
-      </div>
-
-      <div class="text-right">
-        <p class="text-sm text-gray-500">
-          {isPart7 ? "Questions" : "Question"}
-        </p>
-
-        <p class="text-xl font-bold">
-          <span id="question-number">1</span>
-          <span class="text-gray-400">/ {questions.length}</span>
-        </p>
-      </div>
-    </div>
-
-    <!-- ================================================================ -->
-    <!-- PROGRESS -->
-    <!-- ================================================================ -->
-
-    <div class="mb-8 h-2 overflow-hidden rounded-full bg-gray-100">
-      <div
-        id="progress-bar"
-        class="h-full rounded-full bg-gray-900 transition-all duration-300"
-        style="width: 0%"
-      >
-      </div>
-    </div>
-
-    <!-- ================================================================ -->
-    <!-- PART 7 -->
-    <!-- ================================================================ -->
+  <ProgressBar />
 
     {
       isPart7 ? (
@@ -176,134 +69,28 @@ const isPart7 = session.part === "7"
         </div>
       ) : (
         <>
-          <!-- ========================================================== -->
-          <!-- PASSAGE FOR PART 6 -->
-          <!-- ========================================================== -->
-
-          {
-            session.part === "6" && (
-              <section
-                id="passage-section"
-                class="mb-6 overflow-hidden rounded-2xl border bg-white"
-              >
-                <div class="border-b bg-gray-50 px-6 py-4 sm:px-8">
-                  <div class="flex items-center justify-between gap-4">
-                    <div>
-                      <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                        Reading Passage
-                      </p>
-
-                      <h2
-                        id="passage-title"
-                        class="mt-1 text-lg font-bold text-gray-900"
-                      >
-                      </h2>
-                    </div>
-
-                    <span class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-gray-500 ring-1 ring-gray-200">
-                      パート {session.part}
-                    </span>
-                  </div>
-                </div>
-
-                <div
-                  id="passage-text"
-                  class="whitespace-pre-line px-6 py-7 text-base leading-8 text-gray-800 sm:px-8 sm:text-lg"
-                >
-                </div>
-              </section>
-            )
-          }
-
-          <!-- ========================================================== -->
-          <!-- PART 5 / PART 6 QUESTION -->
-          <!-- ========================================================== -->
-
-          <section class="rounded-2xl border bg-white p-6 sm:p-8">
-
-            <div>
-              <p
-                id="question-text"
-                class="text-lg font-medium leading-8 text-gray-900 sm:text-xl"
-              >
-                {questions[0].questionText}
-              </p>
-            </div>
-
-            <div class="mt-4">
-              <span
-                id="difficulty"
-                class="text-xs font-medium uppercase tracking-wide text-gray-400"
-              >
-                {questions[0].difficulty ?? ""}
-              </span>
-            </div>
-
-            <div id="options" class="mt-8 space-y-3">
-              {
-                questions[0].options.map((option) => (
-                  <button
-                    type="button"
-                    data-option-id={option.id}
-                    class="option-button flex w-full items-center gap-4 rounded-xl border p-4 text-left transition hover:border-gray-400 hover:bg-gray-50"
-                  >
-                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-sm font-semibold">
-                      {option.label}
-                    </span>
-
-                    <span class="text-sm leading-6 text-gray-800">
-                      {option.text}
-                    </span>
-                  </button>
-                ))
-              }
-            </div>
-
-            <div id="feedback" class="mt-6 hidden rounded-xl border p-5">
-              <p id="feedback-title" class="font-semibold"></p>
-
-              <p
-                id="feedback-explanation"
-                class="mt-2 text-sm leading-6 text-gray-600"
-              >
-              </p>
-            </div>
-
-            <!-- Useful vocabulary -->
-
-            <section id="vocabulary-section" class="mt-8 hidden">
-              <div class="border-t pt-6">
-                <div>
-                  <h2 class="text-base font-semibold text-gray-900">
-                    役立つ単語
-                  </h2>
-
-                  <p class="mt-1 text-sm text-gray-500">
-                    この問題に出てくる役立つ単語やフレーズ
-                  </p>
-                </div>
-
-                <div id="vocabulary-list" class="mt-4 space-y-3"></div>
-              </div>
-            </section>
-
-            <div class="mt-8 flex justify-end">
-              <button
-                id="next-button"
-                type="button"
-                disabled
-                class="rounded-lg bg-gray-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                次 →
-              </button>
-            </div>
-          </section>
+        {
+          session.part === "6" && (
+            <PassageCard part={session.part} />
+          )
+        }
+          <QuestionCard question={questions[0]} />
         </>
       )
     }
   </main>
-
   <script define:vars={{ questions, passages, sessionId: id, isPart7 }}>
+    import { initPart5And6Practice } from "../../lib/practice/part5-6"
+    import { initPart7Practice } from "../../lib/practice/part7"
+
+    if (isPart7) {
+      initPart7Practice(questions, passages, sessionId )
+    } else {
+      initPart5And6Practice(questions, passages, sessionId)
+    }
+  </script>
+
+  <!-- <script define:vars={{ questions, passages, sessionId: id, isPart7 }}>
     const questionData = questions
     const passageData = passages
     const part7 = isPart7
@@ -2271,5 +2058,5 @@ const isPart7 = session.part === "7"
 
       renderPart7()
     }
-  </script>
+  </script> -->
 </AppLayout>

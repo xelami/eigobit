@@ -1,0 +1,71 @@
+---
+import Feedback from "./Feedback.astro"
+import VocabularyList from "./VocabularyList.astro"
+
+interface Props {
+  question: {
+    questionText: string
+    difficulty?: string | null
+    options: {
+      id: string
+      label: string
+      text: string
+    }[]
+  }
+}
+
+const { question } = Astro.props
+---
+
+<section class="rounded-2xl border bg-white p-6 sm:p-8">
+  <div>
+    <p
+      id="question-text"
+      class="text-lg font-medium leading-8 text-gray-900 sm:text-xl"
+    >
+      {question.questionText}
+    </p>
+  </div>
+
+  <div class="mt-4">
+    <span
+      id="difficulty"
+      class="text-xs font-medium uppercase tracking-wide text-gray-400"
+    >
+      {question.difficulty ?? ""}
+    </span>
+  </div>
+
+  <div id="options" class="mt-8 space-y-3">
+    {
+      question.options.map((option) => (
+        <button
+          type="button"
+          data-option-id={option.id}
+          class="option-button flex w-full items-center gap-4 rounded-xl border p-4 text-left transition hover:border-gray-400 hover:bg-gray-50"
+        >
+          <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-sm font-semibold">
+            {option.label}
+          </span>
+
+          <span class="text-sm leading-6 text-gray-800">{option.text}</span>
+        </button>
+      ))
+    }
+  </div>
+
+  <Feedback />
+
+  <VocabularyList />
+
+  <div class="mt-8 flex justify-end">
+    <button
+      id="next-button"
+      type="button"
+      disabled
+      class="rounded-lg bg-gray-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
+    >
+      次 →
+    </button>
+  </div>
+</section>

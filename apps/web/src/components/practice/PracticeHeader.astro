@@ -1,0 +1,48 @@
+---
+interface Props {
+  exam: string
+  part: string
+  isPart7: boolean
+  questionCount: number
+}
+
+const { exam, part, isPart7, questionCount } = Astro.props
+---
+
+<div class="mb-8 flex items-center justify-between gap-4">
+  <div>
+    <a
+      href="/dashboard"
+      class="text-sm font-medium text-gray-500 hover:text-gray-900"
+    >
+      ← ホーム
+    </a>
+
+    <div class="mt-3 flex items-center gap-3">
+      <span
+        class="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-gray-600"
+      >
+        {exam}
+      </span>
+
+      <span class="text-sm text-gray-500">
+        パート {part}
+      </span>
+    </div>
+
+    <h1 class="mt-2 text-2xl font-bold tracking-tight">
+      {isPart7 ? "Reading Comprehension" : "Practice"}
+    </h1>
+  </div>
+
+  <div class="text-right">
+    <p class="text-sm text-gray-500">
+      {isPart7 ? "Questions" : "Question"}
+    </p>
+
+    <p class="text-xl font-bold">
+      <span id="question-number">1</span>
+      <span class="text-gray-400">/ {questionCount}</span>
+    </p>
+  </div>
+</div>
