@@ -1,0 +1,47 @@
+---
+const { user } = Astro.props
+---
+
+<section class="rounded-2xl border bg-white p-6 sm:p-8">
+  <div>
+    <h2 class="text-xl font-bold text-gray-900">プロフィール</h2>
+
+    <p class="mt-1 text-sm text-gray-500">アカウント情報。</p>
+  </div>
+
+  <div class="mt-6 divide-y">
+    <div class="flex items-center justify-between gap-6 py-4 first:pt-0">
+      <div>
+        <p class="text-sm font-medium text-gray-500">名前</p>
+
+        <p class="mt-1 font-semibold text-gray-900">
+          {user.name || "未設定"}
+        </p>
+      </div>
+
+      <button
+        type="button"
+        class="rounded-lg border px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+      >
+        編集
+      </button>
+    </div>
+
+    <div class="flex items-center justify-between gap-6 py-4">
+      <div>
+        <p class="text-sm font-medium text-gray-500">メールアドレス</p>
+
+        <p class="mt-1 font-semibold text-gray-900">
+          {user.email}
+        </p>
+      </div>
+
+      <button
+        type="button"
+        class="rounded-lg border px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+      >
+        編集
+      </button>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,72 @@
+---
+interface Props {
+  googleAccount: boolean
+}
+
+const { googleAccount } = Astro.props
+---
+
+<section class="mt-6 rounded-2xl border bg-white p-6 sm:p-8">
+  <div>
+    <h2 class="text-xl font-bold text-gray-900">連携済みアカウント</h2>
+
+    <p class="mt-1 text-sm text-gray-500">
+      外部アカウントを連携すると、より簡単にログインできます。
+    </p>
+  </div>
+
+  <div class="mt-6 divide-y">
+    <!-- GOOGLE -->
+
+    <div
+      class="flex flex-col gap-4 py-4 first:pt-0 sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div class="flex items-center gap-4">
+        <div
+          class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border bg-white text-lg font-bold"
+        >
+          G
+        </div>
+
+        <div>
+          <p class="font-semibold text-gray-900">Google</p>
+
+          {
+            googleAccount ? (
+              <p class="mt-1 text-sm text-gray-500">
+                Googleアカウントが連携されています
+              </p>
+            ) : (
+              <p class="mt-1 text-sm text-gray-500">未連携</p>
+            )
+          }
+        </div>
+      </div>
+
+      {
+        googleAccount ? (
+          <button
+            type="button"
+            data-disconnect-provider="google"
+            class="rounded-lg border px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+          >
+            連携を解除
+          </button>
+        ) : (
+          <a
+            href="/api/v1/auth/link/google"
+            class="rounded-lg bg-gray-900 px-4 py-2 text-center text-sm font-semibold text-white transition hover:bg-gray-800"
+          >
+            連携する
+          </a>
+        )
+      }
+    </div>
+  </div>
+
+  <div
+    id="connected-accounts-message"
+    class="mt-4 hidden rounded-xl px-4 py-3 text-sm"
+  >
+  </div>
+</section>

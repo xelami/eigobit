@@ -38,8 +38,6 @@ if (Astro.request.method === "POST") {
       }),
     })
 
-    console.log("PRACTICE SESSION RESPONSE:", JSON.stringify(result, null, 2))
-
     return Astro.redirect(`/practice/${result.sessionId}`)
   } catch (err) {
     console.error("PRACTICE SESSION ERROR:", err)
@@ -78,8 +76,6 @@ if (Astro.request.method === "POST") {
     }
 
     <div class="mt-8 grid gap-6 md:grid-cols-2">
-      <!-- Part 5 -->
-
       <form method="POST">
         <input type="hidden" name="part" value="5" />
 
@@ -122,8 +118,6 @@ if (Astro.request.method === "POST") {
           </div>
         </button>
       </form>
-
-      <!-- Part 6 -->
 
       <form method="POST">
         <input type="hidden" name="part" value="6" />
@@ -168,8 +162,6 @@ if (Astro.request.method === "POST") {
         </button>
       </form>
     </div>
-
-    <!-- Part 7 -->
 
     <form method="POST" class="mt-6">
       <input type="hidden" name="part" value="7" />

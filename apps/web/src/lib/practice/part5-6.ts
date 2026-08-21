@@ -316,10 +316,6 @@ export function initPart5And6Practice(
       button.disabled = true
     })
 
-    buttons?.forEach((button) => {
-      button.disabled = true
-    })
-
     const selectedButton = optionsContainer?.querySelector<HTMLButtonElement>(
       `[data-option-id="${optionId}"]`,
     )
