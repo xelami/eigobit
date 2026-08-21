@@ -188,3 +188,248 @@ const { toeicGoal, eikenGoal } = Astro.props
     </div>
   </div>
 </section>
+<script>
+  /*
+   * ==========================================================================
+   * 試験目標
+   * ==========================================================================
+   */
+
+  const editExamTargetsButton = document.getElementById(
+    "edit-exam-targets-button",
+  )
+
+  const cancelExamTargetsButton = document.getElementById(
+    "cancel-exam-targets-button",
+  )
+
+  const saveExamTargetsButton = document.getElementById(
+    "save-exam-targets-button",
+  )
+
+  const examTargetsDisplay = document.getElementById("exam-targets-display")
+
+  const examTargetsEditor = document.getElementById("exam-targets-editor")
+
+  const examTargetsMessage = document.getElementById("exam-targets-message")
+
+  editExamTargetsButton?.addEventListener("click", () => {
+    examTargetsDisplay?.classList.add("hidden")
+
+    examTargetsEditor?.classList.remove("hidden")
+
+    editExamTargetsButton.classList.add("hidden")
+  })
+
+  cancelExamTargetsButton?.addEventListener("click", () => {
+    window.location.reload()
+  })
+
+  saveExamTargetsButton?.addEventListener("click", async () => {
+    const toeicTargetScore = (
+      document.getElementById("toeic-target-score") as HTMLInputElement
+    )?.value.trim()
+
+    const eikenTargetGrade = (
+      document.getElementById("eiken-target-grade") as HTMLSelectElement
+    )?.value
+
+    if (
+      toeicTargetScore &&
+      (Number(toeicTargetScore) < 10 ||
+        Number(toeicTargetScore) > 990 ||
+        !Number.isInteger(Number(toeicTargetScore)))
+    ) {
+      if (examTargetsMessage) {
+        examTargetsMessage.textContent =
+          "TOEICの目標スコアは10～990の範囲で設定してください。"
+
+        examTargetsMessage.className =
+          "rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+
+        examTargetsMessage.classList.remove("hidden")
+      }
+
+      return
+    }
+
+    if (saveExamTargetsButton) {
+      saveExamTargetsButton.setAttribute("disabled", "true")
+
+      saveExamTargetsButton.textContent = "保存中..."
+    }
+
+    const examGoals: {
+      exam: string
+
+      toeicTargetScore?: string
+
+      eikenTargetGrade?: string
+    }[] = []
+
+    if (toeicTargetScore) {
+      examGoals.push({
+        exam: "toeic",
+
+        toeicTargetScore,
+      })
+    }
+
+    if (eikenTargetGrade) {
+      examGoals.push({
+        exam: "eiken",
+
+        eikenTargetGrade,
+      })
+    }
+
+    try {
+      const response = await fetch("/api/settings/exam-targets", {
+        method: "PATCH",
+
+        headers: {
+          "Content-Type": "application/json",
+        },
+
+        body: JSON.stringify({
+          examGoals,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "試験目標の保存に失敗しました")
+      }
+
+      window.location.reload()
+    } catch (error) {
+      if (examTargetsMessage) {
+        examTargetsMessage.textContent =
+          error instanceof Error
+            ? error.message
+            : "試験目標の保存に失敗しました。"
+
+        examTargetsMessage.className =
+          "rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+
+        examTargetsMessage.classList.remove("hidden")
+      }
+
+      saveExamTargetsButton?.removeAttribute("disabled")
+
+      if (saveExamTargetsButton) {
+        saveExamTargetsButton.textContent = "変更を保存"
+      }
+    }
+  })
+
+  const editButton = document.getElementById("edit-exam-targets-button")
+
+  const cancelButton = document.getElementById("cancel-exam-targets-button")
+
+  const saveButton = document.getElementById("save-exam-targets-button")
+
+  const display = document.getElementById("exam-targets-display")
+
+  const editor = document.getElementById("exam-targets-editor")
+
+  const message = document.getElementById("exam-targets-message")
+
+  editButton?.addEventListener("click", () => {
+    display?.classList.add("hidden")
+    editor?.classList.remove("hidden")
+    editButton.classList.add("hidden")
+  })
+
+  cancelButton?.addEventListener("click", () => {
+    window.location.reload()
+  })
+
+  saveButton?.addEventListener("click", async () => {
+    const toeicTargetScore = (
+      document.getElementById("toeic-target-score") as HTMLInputElement
+    )?.value.trim()
+
+    const eikenTargetGrade = (
+      document.getElementById("eiken-target-grade") as HTMLSelectElement
+    )?.value
+
+    if (
+      toeicTargetScore &&
+      (Number(toeicTargetScore) < 10 ||
+        Number(toeicTargetScore) > 990 ||
+        !Number.isInteger(Number(toeicTargetScore)))
+    ) {
+      if (message) {
+        message.textContent =
+          "TOEICの目標スコアは10～990の範囲で設定してください。"
+
+        message.className =
+          "rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+
+        message.classList.remove("hidden")
+      }
+
+      return
+    }
+
+    saveButton.setAttribute("disabled", "true")
+    saveButton.textContent = "保存中..."
+
+    const examGoals: {
+      exam: string
+      toeicTargetScore?: string
+      eikenTargetGrade?: string
+    }[] = []
+
+    if (toeicTargetScore) {
+      examGoals.push({
+        exam: "toeic",
+        toeicTargetScore,
+      })
+    }
+
+    if (eikenTargetGrade) {
+      examGoals.push({
+        exam: "eiken",
+        eikenTargetGrade,
+      })
+    }
+
+    try {
+      const response = await fetch("/api/settings/exam-targets", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          examGoals,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "試験目標の保存に失敗しました")
+      }
+
+      window.location.reload()
+    } catch (error) {
+      if (message) {
+        message.textContent =
+          error instanceof Error
+            ? error.message
+            : "試験目標の保存に失敗しました。"
+
+        message.className =
+          "rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+
+        message.classList.remove("hidden")
+      }
+
+      saveButton.removeAttribute("disabled")
+      saveButton.textContent = "変更を保存"
+    }
+  })
+</script>
