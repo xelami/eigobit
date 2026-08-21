@@ -79,39 +79,16 @@ const isPart7 = session.part === "7"
       )
     }
   </main>
-<script define:vars={{ questions, passages, sessionId: id, isPart7 }}>
-
-  import { initPart5And6Practice } from "../../lib/practice/part5-6"
-
-  import { initPart7 } from "../../lib/practice/part7"
-
-  if (isPart7) {
-
-    initPart7({
-
+  <script type="application/json" id="practice-data">
+    {.stringify({
       questions,
-
       passages,
+      sessionId: id,
+      isPart7,
+    }).replace(/</g, "\\u003c")}
+  </script>
 
-      sessionId,
-
-    })
-
-  } else {
-
-    initPart5And6Practice(
-
-      questions,
-
-      passages,
-
-      sessionId,
-
-    )
-
-  }
-
-</script>
+  <script src="../../scripts/practice.ts"></script>
   <!-- <script define:vars={{ questions, passages, sessionId: id, isPart7 }}>
     import { initPart5And6Practice } from "../../lib/practice/part5-6"
     import { initPart7Practice } from "../../lib/practice/part7"
