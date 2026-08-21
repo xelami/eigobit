@@ -79,7 +79,41 @@ const isPart7 = session.part === "7"
       )
     }
   </main>
-  <script define:vars={{ questions, passages, sessionId: id, isPart7 }}>
+  <script type="application/json" id="practice-data">
+    {JSON.stringify({
+      questions,
+      passages,
+      sessionId: id,
+      isPart7,
+    }).replace(/</g, "\\u003c")}
+  </script>
+
+  <script>
+    import { initPart5And6Practice } from "../../lib/practice/part5-6"
+    import { initPart7 } from "../../lib/practice/part7"
+
+    const dataElement = document.querySelector("#practice-data")
+
+    if (dataElement) {
+      const data = JSON.parse(dataElement.textContent ?? "{}")
+if (data.isPart7) {
+
+  initPart7({
+    questions: data.questions,
+    passages: data.passages,
+    sessionId: data.sessionId,
+  })
+} else {
+  initPart5And6Practice(
+    data.questions,
+    data.passages,
+    data.sessionId,
+  )
+
+}
+    }
+  </script>
+  <!-- <script define:vars={{ questions, passages, sessionId: id, isPart7 }}>
     import { initPart5And6Practice } from "../../lib/practice/part5-6"
     import { initPart7Practice } from "../../lib/practice/part7"
 
@@ -88,7 +122,7 @@ const isPart7 = session.part === "7"
     } else {
       initPart5And6Practice(questions, passages, sessionId)
     }
-  </script>
+  </script> -->
 
   <!-- <script define:vars={{ questions, passages, sessionId: id, isPart7 }}>
     const questionData = questions
