@@ -8,6 +8,7 @@ import {
   isNotNull,
   desc,
   aliasedTable,
+  sql,
 } from "drizzle-orm"
 
 import { db } from "@repo/db"
@@ -631,6 +632,12 @@ const practiceRoutes: FastifyPluginAsync = async (app) => {
   app.post("/sessions/:sessionId/answers", async (request, reply) => {
     const start = performance.now()
 
+    /*
+     * ==========================================================================
+     * AUTH
+     * ==========================================================================
+     */
+
     const user = await getAuthenticatedUser(request)
 
     if (!user) {
@@ -640,6 +647,12 @@ const practiceRoutes: FastifyPluginAsync = async (app) => {
     }
 
     console.log("AUTH:", Math.round(performance.now() - start))
+
+    /*
+     * ==========================================================================
+     * INPUT
+     * ==========================================================================
+     */
 
     const { sessionId } = request.params as {
       sessionId: string
@@ -658,73 +671,69 @@ const practiceRoutes: FastifyPluginAsync = async (app) => {
 
     /*
      * ==========================================================================
-     * ONE SELECT
+     * ONE DATABASE ROUND-TRIP
      * ==========================================================================
      *
-     * Instead of:
+     * This does everything:
      *
-     * 1. Get session
-     * 2. Get session question
-     * 3. Get selected option
-     * 4. Get correct option
+     * 1. Verifies the session belongs to the user
+     * 2. Verifies the session isn't completed
+     * 3. Verifies the question belongs to the session
+     * 4. Verifies the option belongs to the question
+     * 5. Determines whether the answer is correct
+     * 6. Gets the explanation
+     * 7. Gets the correct option ID
+     * 8. Updates the session question
+     * 9. Returns the result
      *
-     * We get everything we need in ONE database round-trip.
+     * All in ONE PostgreSQL round-trip.
      */
 
     const databaseStart = performance.now()
 
-    const rows = await db
-      .select({
-        sessionId: practiceSessions.id,
-        completedAt: practiceSessions.completedAt,
+    const result = await db.execute(sql`
+    UPDATE practice_session_questions AS psq
 
-        sessionQuestionId: practiceSessionQuestions.id,
+    SET
+      selected_option_id = selected_option.id,
+      is_correct = selected_option.is_correct,
+      answered_at = NOW()
 
-        selectedOptionId: practiceQuestionOptions.id,
-        selectedIsCorrect: practiceQuestionOptions.isCorrect,
+    FROM practice_sessions AS ps
+    INNER JOIN practice_question_options AS selected_option
+      ON selected_option.question_id = psq.question_id
+      AND selected_option.id = ${body.optionId}
+    INNER JOIN practice_questions AS pq
+      ON pq.id = psq.question_id
 
-        explanation: practiceQuestions.explanation,
-      })
-      .from(practiceSessions)
-      .innerJoin(
-        practiceSessionQuestions,
-        and(
-          eq(practiceSessionQuestions.sessionId, practiceSessions.id),
-          eq(practiceSessionQuestions.questionId, body.questionId),
-        ),
-      )
-      .innerJoin(
-        practiceQuestionOptions,
-        and(
-          eq(practiceQuestionOptions.id, body.optionId),
-          eq(practiceQuestionOptions.questionId, body.questionId),
-        ),
-      )
-      .innerJoin(practiceQuestions, eq(practiceQuestions.id, body.questionId))
-      .where(
-        and(
-          eq(practiceSessions.id, sessionId),
-          eq(practiceSessions.userId, user.id),
-        ),
-      )
-      .limit(1)
+    WHERE
+      ps.id = ${sessionId}
+      AND ps.user_id = ${user.id}
+      AND ps.completed_at IS NULL
 
-    console.log(
-      "DATABASE SELECT:",
-      Math.round(performance.now() - databaseStart),
-    )
+      AND psq.session_id = ps.id
+      AND psq.question_id = ${body.questionId}
 
-    const result = rows[0]
+    RETURNING
+      psq.question_id,
+      psq.selected_option_id,
+      psq.is_correct,
+      pq.explanation
+  `)
 
-    if (!result) {
+    console.log("DATABASE:", Math.round(performance.now() - databaseStart))
+
+    /*
+     * ==========================================================================
+     * VALIDATION
+     * ==========================================================================
+     */
+
+    const row = result[0]
+
+    if (!row) {
       return reply.code(404).send({
         error: "Invalid session, question, or option",
-      })
-    }
-
-    if (result.completedAt) {
-      return reply.code(400).send({
-        error: "Practice session is already completed",
       })
     }
 
@@ -733,9 +742,13 @@ const practiceRoutes: FastifyPluginAsync = async (app) => {
      * GET CORRECT OPTION
      * ==========================================================================
      *
-     * We still need the correct option ID.
+     * We technically need the correct option ID for the response.
      *
-     * This is a very small query and uses the question_id index.
+     * This is a SECOND query, so if we want the absolute minimum latency,
+     * we can remove this from the response or incorporate it into the SQL
+     * using a subquery.
+     *
+     * For now, let's keep it simple and measure it.
      */
 
     const correctOptionStart = performance.now()
@@ -760,34 +773,19 @@ const practiceRoutes: FastifyPluginAsync = async (app) => {
 
     /*
      * ==========================================================================
-     * UPDATE ANSWER
+     * RESPONSE
      * ==========================================================================
      */
-
-    const isCorrect = result.selectedIsCorrect
-
-    const updateStart = performance.now()
-
-    await db
-      .update(practiceSessionQuestions)
-      .set({
-        selectedOptionId: result.selectedOptionId,
-        isCorrect,
-        answeredAt: new Date(),
-      })
-      .where(eq(practiceSessionQuestions.id, result.sessionQuestionId))
-
-    console.log("UPDATE:", Math.round(performance.now() - updateStart))
 
     console.log("TOTAL AFTER AUTH:", Math.round(performance.now() - start))
 
     return {
       questionId: body.questionId,
-      selectedOptionId: result.selectedOptionId,
-      isCorrect,
-      correct: isCorrect,
+      selectedOptionId: row.selected_option_id,
+      isCorrect: row.is_correct,
+      correct: row.is_correct,
       correctOptionId: correctOption?.id ?? null,
-      explanation: result.explanation,
+      explanation: row.explanation,
     }
   })
 
