@@ -79,38 +79,39 @@ const isPart7 = session.part === "7"
       )
     }
   </main>
-  <script type="application/json" id="practice-data">
-    {JSON.stringify({
+<script define:vars={{ questions, passages, sessionId: id, isPart7 }}>
+
+  import { initPart5And6Practice } from "../../lib/practice/part5-6"
+
+  import { initPart7 } from "../../lib/practice/part7"
+
+  if (isPart7) {
+
+    initPart7({
+
       questions,
+
       passages,
-      sessionId: id,
-      isPart7,
-    }).replace(/</g, "\\u003c")}
-  </script>
 
-  <script define:vars={{ questions, passages, sessionId: id, isPart7 }}>
-    import { initPart5And6Practice } from "../../lib/practice/part5-6"
-    import { initPart7 } from "../../lib/practice/part7"
+      sessionId,
 
-    console.log("[Practice] client script loaded")
-    console.log("[Practice] isPart7:", isPart7)
-    console.log("[Practice] questions:", questions)
-    console.log("[Practice] sessionId:", sessionId)
+    })
 
-    if (isPart7) {
-      initPart7({
-        questions,
-        passages,
-        sessionId,
-      })
-    } else {
-      initPart5And6Practice(
-        questions,
-        passages,
-        sessionId,
-      )
-    }
-  </script>
+  } else {
+
+    initPart5And6Practice(
+
+      questions,
+
+      passages,
+
+      sessionId,
+
+    )
+
+  }
+
+</script>
   <!-- <script define:vars={{ questions, passages, sessionId: id, isPart7 }}>
     import { initPart5And6Practice } from "../../lib/practice/part5-6"
     import { initPart7Practice } from "../../lib/practice/part7"
