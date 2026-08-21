@@ -2,6 +2,7 @@
 import AppLayout from "../layouts/AppLayout.astro"
 import { requireAuth } from "../lib/require-auth"
 import { apiFetch } from "../lib/api"
+import type { Vocabulary, Pagination } from "../lib/types"
 
 const user = await requireAuth(Astro)
 
@@ -9,30 +10,9 @@ if (user instanceof Response) {
   return user
 }
 
-type Vocabulary = {
-  id: string
-  word: string
-  meaning: string | null
-  exampleSentence: string | null
-  notes: string | null
-  tags: string | null
-  createdAt: string
-  updatedAt: string
-}
-
-type Pagination = {
-  page: number
-  limit: number
-  total: number
-  totalPages: number
-}
-
 const search = Astro.url.searchParams.get("search")?.trim() ?? ""
-
 const pageParam = Number(Astro.url.searchParams.get("page") ?? "1")
-
 const page = Number.isInteger(pageParam) && pageParam > 0 ? pageParam : 1
-
 const limit = 20
 
 let vocabulary: Vocabulary[] = []

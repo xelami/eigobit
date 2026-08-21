@@ -8,6 +8,7 @@ import {
   isNotNull,
   desc,
   aliasedTable,
+  sql,
 } from "drizzle-orm"
 
 import { db } from "@repo/db"
@@ -1406,7 +1407,13 @@ const practiceRoutes: FastifyPluginAsync = async (app) => {
       })
     }
 
-    const sessions = await db
+    /*
+     * ========================================================================
+     * RECENT SESSIONS
+     * ========================================================================
+     */
+
+    const recentSessionsPromise = db
       .select({
         id: practiceSessions.id,
         exam: practiceSessions.exam,
@@ -1414,11 +1421,48 @@ const practiceRoutes: FastifyPluginAsync = async (app) => {
         totalQuestions: practiceSessions.totalQuestions,
         correctAnswers: practiceSessions.correctAnswers,
         completedAt: practiceSessions.completedAt,
-        createdAt: practiceSessions.createdAt,
       })
-
       .from(practiceSessions)
+      .where(
+        and(
+          eq(practiceSessions.userId, user.id),
+          isNotNull(practiceSessions.completedAt),
+        ),
+      )
+      .orderBy(desc(practiceSessions.completedAt))
+      .limit(20)
 
+    /*
+     * ========================================================================
+     * SESSION SUMMARY
+     *
+     * We can calculate these directly from practice_sessions.
+     * No need to load every session into Node.
+     * ========================================================================
+     */
+
+    const summaryPromise = db
+      .select({
+        sessions: sql<number>`count(*)::int`,
+        questionsAnswered: sql<number>`coalesce(sum(${practiceSessions.totalQuestions}), 0)::int`,
+        correctAnswers: sql<number>`coalesce(sum(${practiceSessions.correctAnswers}), 0)::int`,
+        bestScore: sql<number>`
+        coalesce(
+          max(
+            case
+              when ${practiceSessions.totalQuestions} > 0
+              then round(
+                (${practiceSessions.correctAnswers}::numeric /
+                ${practiceSessions.totalQuestions}) * 100
+              )
+              else 0
+            end
+          ),
+          0
+        )::int
+      `,
+      })
+      .from(practiceSessions)
       .where(
         and(
           eq(practiceSessions.userId, user.id),
@@ -1426,17 +1470,38 @@ const practiceRoutes: FastifyPluginAsync = async (app) => {
         ),
       )
 
-      .orderBy(desc(practiceSessions.completedAt))
+    /*
+     * ========================================================================
+     * BY PART
+     * ========================================================================
+     */
 
-    const answers = await db
-
+    const byPartPromise = db
       .select({
-        sessionId: practiceSessionQuestions.sessionId,
-        questionId: practiceSessionQuestions.questionId,
-        isCorrect: practiceSessionQuestions.isCorrect,
         part: practiceQuestions.part,
-        questionType: practiceQuestions.questionType,
-        difficulty: practiceQuestions.difficulty,
+
+        questions: sql<number>`count(*)::int`,
+
+        correct: sql<number>`
+        count(*) filter (
+          where ${practiceSessionQuestions.isCorrect} = true
+        )::int
+      `,
+
+        accuracy: sql<number>`
+        case
+          when count(*) > 0
+          then round(
+            (
+              count(*) filter (
+                where ${practiceSessionQuestions.isCorrect} = true
+              )::numeric
+              / count(*)
+            ) * 100
+          )
+          else 0
+        end::int
+      `,
       })
       .from(practiceSessionQuestions)
       .innerJoin(
@@ -1453,131 +1518,59 @@ const practiceRoutes: FastifyPluginAsync = async (app) => {
           isNotNull(practiceSessions.completedAt),
         ),
       )
-    /*
-  
-     * ========================================================================
-     * OVERALL
-     * ========================================================================
-     */
+      .groupBy(practiceQuestions.part)
 
-    const questionsAnswered = answers.length
-
-    const correctAnswers = answers.filter(
-      (answer) => answer.isCorrect === true,
-    ).length
-
-    const accuracy =
-      questionsAnswered > 0
-        ? Math.round((correctAnswers / questionsAnswered) * 100)
-        : 0
-
-    const bestScore =
-      sessions.length > 0
-        ? Math.max(
-            ...sessions.map((session) =>
-              session.totalQuestions > 0
-                ? Math.round(
-                    (session.correctAnswers / session.totalQuestions) * 100,
-                  )
-                : 0,
-            ),
-          )
-        : 0
-    /*
-     * ========================================================================
-     * BY PART
-     * ========================================================================
-     */
-
-    const partMap = new Map<
-      string,
-      {
-        questions: number
-        correct: number
-      }
-    >()
-
-    for (const answer of answers) {
-      const existing = partMap.get(answer.part) ?? {
-        questions: 0,
-        correct: 0,
-      }
-
-      existing.questions += 1
-
-      if (answer.isCorrect === true) {
-        existing.correct += 1
-      }
-
-      partMap.set(answer.part, existing)
-    }
-
-    const byPart = Array.from(partMap.entries())
-      .map(([part, data]) => ({
-        part,
-        questions: data.questions,
-        correct: data.correct,
-        accuracy:
-          data.questions > 0
-            ? Math.round((data.correct / data.questions) * 100)
-            : 0,
-      }))
-      .sort((a, b) => a.part.localeCompare(b.part))
     /*
      * ========================================================================
      * BY DIFFICULTY
      * ========================================================================
      */
 
-    const difficultyMap = new Map<
-      string,
-      {
-        questions: number
-        correct: number
-      }
-    >()
+    const byDifficultyPromise = db
+      .select({
+        difficulty: sql<string>`
+        coalesce(${practiceQuestions.difficulty}, 'unknown')
+      `,
 
-    for (const answer of answers) {
-      const difficulty = answer.difficulty ?? "unknown"
+        questions: sql<number>`count(*)::int`,
 
-      const existing = difficultyMap.get(difficulty) ?? {
-        questions: 0,
-        correct: 0,
-      }
+        correct: sql<number>`
+        count(*) filter (
+          where ${practiceSessionQuestions.isCorrect} = true
+        )::int
+      `,
 
-      existing.questions += 1
-
-      if (answer.isCorrect === true) {
-        existing.correct += 1
-      }
-
-      difficultyMap.set(difficulty, existing)
-    }
-
-    const byDifficulty = Array.from(difficultyMap.entries())
-
-      .map(([difficulty, data]) => ({
-        difficulty,
-        questions: data.questions,
-        correct: data.correct,
-        accuracy:
-          data.questions > 0
-            ? Math.round((data.correct / data.questions) * 100)
-            : 0,
-      }))
-      .sort((a, b) => {
-        const order = {
-          easy: 1,
-          medium: 2,
-          hard: 3,
-          unknown: 4,
-        }
-
-        return (
-          (order[a.difficulty.toLowerCase() as keyof typeof order] ?? 99) -
-          (order[b.difficulty.toLowerCase() as keyof typeof order] ?? 99)
-        )
+        accuracy: sql<number>`
+        case
+          when count(*) > 0
+          then round(
+            (
+              count(*) filter (
+                where ${practiceSessionQuestions.isCorrect} = true
+              )::numeric
+              / count(*)
+            ) * 100
+          )
+          else 0
+        end::int
+      `,
       })
+      .from(practiceSessionQuestions)
+      .innerJoin(
+        practiceQuestions,
+        eq(practiceSessionQuestions.questionId, practiceQuestions.id),
+      )
+      .innerJoin(
+        practiceSessions,
+        eq(practiceSessionQuestions.sessionId, practiceSessions.id),
+      )
+      .where(
+        and(
+          eq(practiceSessions.userId, user.id),
+          isNotNull(practiceSessions.completedAt),
+        ),
+      )
+      .groupBy(practiceQuestions.difficulty)
 
     /*
      * ========================================================================
@@ -1585,108 +1578,171 @@ const practiceRoutes: FastifyPluginAsync = async (app) => {
      * ========================================================================
      */
 
-    const questionTypeMap = new Map<
-      string,
-      {
-        questions: number
-        correct: number
-      }
-    >()
+    const byQuestionTypePromise = db
+      .select({
+        questionType: practiceQuestions.questionType,
 
-    for (const answer of answers) {
-      const existing = questionTypeMap.get(answer.questionType) ?? {
-        questions: 0,
-        correct: 0,
-      }
+        questions: sql<number>`count(*)::int`,
 
-      existing.questions += 1
+        correct: sql<number>`
+        count(*) filter (
+          where ${practiceSessionQuestions.isCorrect} = true
+        )::int
+      `,
 
-      if (answer.isCorrect === true) {
-        existing.correct += 1
-      }
+        accuracy: sql<number>`
+        case
+          when count(*) > 0
+          then round(
+            (
+              count(*) filter (
+                where ${practiceSessionQuestions.isCorrect} = true
+              )::numeric
+              / count(*)
+            ) * 100
+          )
+          else 0
+        end::int
+      `,
+      })
+      .from(practiceSessionQuestions)
+      .innerJoin(
+        practiceQuestions,
+        eq(practiceSessionQuestions.questionId, practiceQuestions.id),
+      )
+      .innerJoin(
+        practiceSessions,
+        eq(practiceSessionQuestions.sessionId, practiceSessions.id),
+      )
+      .where(
+        and(
+          eq(practiceSessions.userId, user.id),
+          isNotNull(practiceSessions.completedAt),
+        ),
+      )
+      .groupBy(practiceQuestions.questionType)
 
-      questionTypeMap.set(answer.questionType, existing)
-    }
-
-    const byQuestionType = Array.from(questionTypeMap.entries())
-
-      .map(([questionType, data]) => ({
-        questionType,
-        questions: data.questions,
-        correct: data.correct,
-        accuracy:
-          data.questions > 0
-            ? Math.round((data.correct / data.questions) * 100)
-            : 0,
-      }))
-      .sort((a, b) => a.accuracy - b.accuracy)
-    /*
-     * ========================================================================
-     * RECENT SESSIONS
-     * ========================================================================
-     */
-
-    const recentSessions = sessions.slice(0, 20).map((session) => ({
-      id: session.id,
-      exam: session.exam,
-      part: session.part,
-      totalQuestions: session.totalQuestions,
-      correctAnswers: session.correctAnswers,
-      score:
-        session.totalQuestions > 0
-          ? Math.round((session.correctAnswers / session.totalQuestions) * 100)
-          : 0,
-
-      completedAt: session.completedAt,
-    }))
-
-    const performanceMap = new Map<
-      string,
-      {
-        date: string
-        questions: number
-        correct: number
-      }
-    >()
-
-    for (const session of sessions) {
-      if (!session.completedAt) {
-        continue
-      }
-
-      const date = new Date(session.completedAt).toISOString().slice(0, 10)
-      const existing = performanceMap.get(date)
-
-      if (existing) {
-        existing.questions += session.totalQuestions
-        existing.correct += session.correctAnswers
-      } else {
-        performanceMap.set(date, {
-          date,
-          questions: session.totalQuestions,
-          correct: session.correctAnswers,
-        })
-      }
-    }
     /*
      * ========================================================================
      * PERFORMANCE OVER TIME
+     *
+     * Again, calculated directly in PostgreSQL.
      * ========================================================================
      */
-    const performanceOverTime = Array.from(performanceMap.values())
-      .sort((a, b) => a.date.localeCompare(b.date))
-      .map((day) => ({
-        ...day,
-        accuracy:
-          day.questions > 0
-            ? Math.round((day.correct / day.questions) * 100)
-            : 0,
-      }))
+
+    const performancePromise = db
+      .select({
+        date: sql<string>`
+        to_char(
+          ${practiceSessions.completedAt},
+          'YYYY-MM-DD'
+        )
+      `,
+
+        questions: sql<number>`
+        sum(${practiceSessions.totalQuestions})::int
+      `,
+
+        correct: sql<number>`
+        sum(${practiceSessions.correctAnswers})::int
+      `,
+
+        accuracy: sql<number>`
+        case
+          when sum(${practiceSessions.totalQuestions}) > 0
+          then round(
+            (
+              sum(${practiceSessions.correctAnswers})::numeric
+              / sum(${practiceSessions.totalQuestions})
+            ) * 100
+          )
+          else 0
+        end::int
+      `,
+      })
+      .from(practiceSessions)
+      .where(
+        and(
+          eq(practiceSessions.userId, user.id),
+          isNotNull(practiceSessions.completedAt),
+        ),
+      )
+      .groupBy(
+        sql`
+        to_char(
+          ${practiceSessions.completedAt},
+          'YYYY-MM-DD'
+        )
+      `,
+      )
+      .orderBy(
+        sql`
+        to_char(
+          ${practiceSessions.completedAt},
+          'YYYY-MM-DD'
+        )
+      `,
+      )
+
+    /*
+     * ========================================================================
+     * RUN ALL QUERIES CONCURRENTLY
+     * ========================================================================
+     */
+
+    const [
+      recentSessions,
+      [summary],
+      byPart,
+      byDifficulty,
+      byQuestionType,
+      performanceOverTime,
+    ] = await Promise.all([
+      recentSessionsPromise,
+      summaryPromise,
+      byPartPromise,
+      byDifficultyPromise,
+      byQuestionTypePromise,
+      performancePromise,
+    ])
+
+    /*
+     * ========================================================================
+     * SORT RESULTS
+     * ========================================================================
+     */
+
+    byPart.sort((a, b) => a.part.localeCompare(b.part))
+
+    const difficultyOrder = {
+      easy: 1,
+      medium: 2,
+      hard: 3,
+      unknown: 4,
+    }
+
+    byDifficulty.sort((a, b) => {
+      const aOrder =
+        difficultyOrder[
+          a.difficulty.toLowerCase() as keyof typeof difficultyOrder
+        ] ?? 99
+
+      const bOrder =
+        difficultyOrder[
+          b.difficulty.toLowerCase() as keyof typeof difficultyOrder
+        ] ?? 99
+
+      return aOrder - bOrder
+    })
+
+    byQuestionType.sort((a, b) => a.accuracy - b.accuracy)
+
     /*
      * ========================================================================
      * WEAK AREAS
      * ========================================================================
      */
+
     const weakAreas = [
       ...byPart.map((item) => ({
         type: "part",
@@ -1706,20 +1762,60 @@ const practiceRoutes: FastifyPluginAsync = async (app) => {
       .sort((a, b) => a.accuracy - b.accuracy)
       .slice(0, 5)
 
+    /*
+     * ========================================================================
+     * RECENT SESSIONS
+     * ========================================================================
+     */
+
+    const formattedRecentSessions = recentSessions.map((session) => ({
+      id: session.id,
+      exam: session.exam,
+      part: session.part,
+      totalQuestions: session.totalQuestions,
+      correctAnswers: session.correctAnswers,
+
+      score:
+        session.totalQuestions > 0
+          ? Math.round((session.correctAnswers / session.totalQuestions) * 100)
+          : 0,
+
+      completedAt: session.completedAt,
+    }))
+
+    /*
+     * ========================================================================
+     * RESPONSE
+     * ========================================================================
+     */
+
     return reply.send({
       summary: {
-        sessions: sessions.length,
-        questionsAnswered,
-        correctAnswers,
-        accuracy,
-        bestScore,
+        sessions: summary?.sessions,
+        questionsAnswered: summary?.questionsAnswered,
+        correctAnswers: summary?.correctAnswers,
+
+        accuracy:
+          summary!.questionsAnswered > 0
+            ? Math.round(
+                (summary!.correctAnswers / summary!.questionsAnswered) * 100,
+              )
+            : 0,
+
+        bestScore: summary!.bestScore,
       },
+
       byPart,
+
       byDifficulty,
+
       byQuestionType,
+
       performanceOverTime,
+
       weakAreas,
-      recentSessions,
+
+      recentSessions: formattedRecentSessions,
     })
   })
 }

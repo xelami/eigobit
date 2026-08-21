@@ -613,7 +613,12 @@ export const practiceSessions = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (table) => [index("practice_sessions_user_id_idx").on(table.userId)],
+  (table) => [
+    index("practice_sessions_user_completed_idx").on(
+      table.userId,
+      table.completedAt,
+    ),
+  ],
 )
 
 export const practiceSessionQuestions = pgTable(
