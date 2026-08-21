@@ -1,7 +1,8 @@
 ---
 import AppLayout from "../layouts/AppLayout.astro"
 import { requireAuth } from "../lib/require-auth"
-import { apiFetch } from "../lib/api"
+import { getSettingsData } from "../lib/settings/api"
+
 import Profile from "../components/settings/Profile.astro"
 import ConnectedAccounts from "../components/settings/ConnectedAccounts.astro"
 import LearningPreferences from "../components/settings/LearningPreferences.astro"
@@ -15,101 +16,13 @@ if (user instanceof Response) {
   return user
 }
 
-let onboarding: {
-  profile: {
-    englishLevel: string
-    studyTime: string
-    onboardingCompleted: string | null
-  } | null
-  learningGoals: string[]
-  interests: string[]
-  examGoals: {
-    exam: string
-    toeicTargetScore: string | null
-    eikenTargetGrade: string | null
-  }[]
-} | null = null
-
-let preferences = {
-  englishLevel: null as string | null,
-  studyTime: null as string | null,
-  learningGoals: [] as string[],
-  interests: [] as string[],
-  examGoals: [] as {
-    exam: string
-    toeicTargetScore: string | null
-    eikenTargetGrade: string | null
-  }[],
-}
-
-try {
-  preferences = await apiFetch<{
-    englishLevel: string | null
-    studyTime: string | null
-    learningGoals: string[]
-    interests: string[]
-    examGoals: {
-      exam: string
-      toeicTargetScore: string | null
-      eikenTargetGrade: string | null
-    }[]
-  }>("/api/v1/settings/preferences", Astro)
-} catch {
-  // Keep defaults.
-}
-
-let connectedAccounts = {
-  google: false,
-  apple: false,
-  line: false,
-}
-
-try {
-  connectedAccounts = await apiFetch<{
-    google: boolean
-    apple: boolean
-    line: boolean
-  }>("/api/v1/auth/link/accounts", Astro)
-} catch {
-  // Continue without connected account information.
-}
-
-const googleAccount = connectedAccounts.google
-
-try {
-  onboarding = await apiFetch<{
-    profile: {
-      englishLevel: string
-      studyTime: string
-      onboardingCompleted: string | null
-    } | null
-    learningGoals: string[]
-    interests: string[]
-    examGoals: {
-      exam: string
-      toeicTargetScore: string | null
-      eikenTargetGrade: string | null
-    }[]
-  }>("/api/v1/onboarding", Astro)
-} catch {
-  // Continue without onboarding data.
-}
-
-const profile = onboarding?.profile
-
-const learningGoals = onboarding?.learningGoals ?? []
-
-const examGoals = onboarding?.examGoals ?? []
-
-const toeicGoal = examGoals.find((goal) => goal.exam === "toeic")
-
-const eikenGoal = examGoals.find((goal) => goal.exam === "eiken")
+const settings = await getSettingsData(Astro)
+const toeicGoal = settings.examGoals.find((goal) => goal.exam === "toeic")
+const eikenGoal = settings.examGoals.find((goal) => goal.exam === "eiken")
 ---
 
 <AppLayout title="設定" user={user}>
   <main class="mx-auto max-w-4xl px-6 py-10">
-    <!-- HEADER -->
-
     <div class="mb-10">
       <a
         href="/dashboard"
@@ -117,36 +30,26 @@ const eikenGoal = examGoals.find((goal) => goal.exam === "eiken")
       >
         ← ダッシュボード
       </a>
-
       <h1 class="mt-4 text-3xl font-bold tracking-tight text-gray-900">設定</h1>
-
       <p class="mt-2 text-gray-500">
         アカウント、学習設定、練習に関する設定を管理できます。
       </p>
     </div>
 
-    <!-- PROFILE -->
-
     <Profile user={user} />
+    <ConnectedAccounts googleAccount={settings.connectedAccounts.google} />
 
-    <!-- CONNECTED ACCOUNTS -->
-
-    <ConnectedAccounts googleAccount={googleAccount} />
-
-    <!-- LEARNING PREFERENCES -->
-
-    <LearningPreferences preferences={preferences} />
-
-    <!-- EXAM TARGETS -->
-
+    <LearningPreferences
+      preferences={{
+        englishLevel: settings.profile?.englishLevel ?? null,
+        studyTime: settings.profile?.studyTime ?? null,
+        learningGoals: settings.learningGoals,
+        interests: settings.interests,
+        examGoals: settings.examGoals,
+      }}
+    />
     <ExamTargets toeicGoal={toeicGoal} eikenGoal={eikenGoal} />
-
-    <!-- ACCOUNT & SECURITY -->
-
     <Security />
-
-    <!-- DANGER ZONE -->
-
     <DangerZone />
 
     <div class="mt-8 text-center">

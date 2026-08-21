@@ -4,6 +4,7 @@ import { z } from "zod"
 
 import { db } from "@repo/db"
 import {
+  accounts,
   userExamGoals,
   userInterests,
   userLearningGoals,
@@ -46,13 +47,7 @@ const preferencesSchema = z.object({
 })
 
 const settingsRoutes: FastifyPluginAsync = async (app) => {
-  /*
-   * ==========================================================================
-   * GET LEARNING PREFERENCES
-   * ==========================================================================
-   */
-
-  app.get("/preferences", async (request, reply) => {
+  ;(app.get("/", async (request, reply) => {
     const user = await getAuthenticatedUser(request)
 
     if (!user) {
@@ -61,46 +56,130 @@ const settingsRoutes: FastifyPluginAsync = async (app) => {
       })
     }
 
-    const [profile] = await db
-      .select({
-        englishLevel: userProfiles.englishLevel,
-        studyTime: userProfiles.studyTime,
-      })
-      .from(userProfiles)
-      .where(eq(userProfiles.userId, user.id))
-      .limit(1)
+    const [profile, learningGoals, interests, examGoals, connectedAccounts] =
+      await Promise.all([
+        db
+          .select({
+            englishLevel: userProfiles.englishLevel,
+            studyTime: userProfiles.studyTime,
+            onboardingCompleted: userProfiles.onboardingCompleted,
+          })
+          .from(userProfiles)
+          .where(eq(userProfiles.userId, user.id))
+          .limit(1),
 
-    const learningGoals = await db
-      .select({
-        goal: userLearningGoals.goal,
-      })
-      .from(userLearningGoals)
-      .where(eq(userLearningGoals.userId, user.id))
+        db
+          .select({
+            goal: userLearningGoals.goal,
+          })
+          .from(userLearningGoals)
+          .where(eq(userLearningGoals.userId, user.id)),
 
-    const interests = await db
-      .select({
-        interest: userInterests.interest,
-      })
-      .from(userInterests)
-      .where(eq(userInterests.userId, user.id))
+        db
+          .select({
+            interest: userInterests.interest,
+          })
+          .from(userInterests)
+          .where(eq(userInterests.userId, user.id)),
 
-    const examGoals = await db
-      .select({
-        exam: userExamGoals.exam,
-        toeicTargetScore: userExamGoals.toeicTargetScore,
-        eikenTargetGrade: userExamGoals.eikenTargetGrade,
-      })
-      .from(userExamGoals)
-      .where(eq(userExamGoals.userId, user.id))
+        db
+          .select({
+            exam: userExamGoals.exam,
+            toeicTargetScore: userExamGoals.toeicTargetScore,
+            eikenTargetGrade: userExamGoals.eikenTargetGrade,
+          })
+          .from(userExamGoals)
+          .where(eq(userExamGoals.userId, user.id)),
+
+        db
+          .select({
+            provider: accounts.provider,
+          })
+          .from(accounts)
+          .where(eq(accounts.userId, user.id)),
+      ])
+
+    const connectedProviders = new Set(
+      connectedAccounts.map((account) => account.provider),
+    )
 
     return {
-      englishLevel: profile?.englishLevel ?? null,
-      studyTime: profile?.studyTime ?? null,
+      profile: profile[0]
+        ? {
+            englishLevel: profile[0].englishLevel,
+            studyTime: profile[0].studyTime,
+            onboardingCompleted: profile[0].onboardingCompleted,
+          }
+        : null,
+
       learningGoals: learningGoals.map((item) => item.goal),
+
       interests: interests.map((item) => item.interest),
+
       examGoals,
+
+      connectedAccounts: {
+        google: connectedProviders.has("google"),
+        apple: connectedProviders.has("apple"),
+        line: connectedProviders.has("line"),
+      },
     }
-  })
+  }),
+    /*
+     * ==========================================================================
+     * GET LEARNING PREFERENCES
+     * ==========================================================================
+     */
+
+    app.get("/preferences", async (request, reply) => {
+      const user = await getAuthenticatedUser(request)
+
+      if (!user) {
+        return reply.code(401).send({
+          error: "Unauthorized",
+        })
+      }
+
+      const [profile] = await db
+        .select({
+          englishLevel: userProfiles.englishLevel,
+          studyTime: userProfiles.studyTime,
+        })
+        .from(userProfiles)
+        .where(eq(userProfiles.userId, user.id))
+        .limit(1)
+
+      const learningGoals = await db
+        .select({
+          goal: userLearningGoals.goal,
+        })
+        .from(userLearningGoals)
+        .where(eq(userLearningGoals.userId, user.id))
+
+      const interests = await db
+        .select({
+          interest: userInterests.interest,
+        })
+        .from(userInterests)
+        .where(eq(userInterests.userId, user.id))
+
+      const examGoals = await db
+        .select({
+          exam: userExamGoals.exam,
+          toeicTargetScore: userExamGoals.toeicTargetScore,
+          eikenTargetGrade: userExamGoals.eikenTargetGrade,
+        })
+        .from(userExamGoals)
+        .where(eq(userExamGoals.userId, user.id))
+
+      return {
+        englishLevel: profile?.englishLevel ?? null,
+        studyTime: profile?.studyTime ?? null,
+        learningGoals: learningGoals.map((item) => item.goal),
+        interests: interests.map((item) => item.interest),
+        examGoals,
+      }
+    }))
 
   /*
    * ==========================================================================
