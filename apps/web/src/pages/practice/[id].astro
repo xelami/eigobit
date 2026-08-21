@@ -79,14 +79,12 @@ const isPart7 = session.part === "7"
       )
     }
   </main>
-  <script type="application/json" id="practice-data">
-    {.stringify({
-      questions,
-      passages,
-      sessionId: id,
-      isPart7,
-    }).replace(/</g, "\\u003c")}
-  </script>
+  <script type="application/json" id="practice-data" set:html={JSON.stringify({
+  questions,
+  passages,
+  sessionId: id,
+  isPart7,
+}).replace(/</g, "\\u003c")} />
 
   <script src="../../scripts/practice.ts"></script>
   <!-- <script define:vars={{ questions, passages, sessionId: id, isPart7 }}>
